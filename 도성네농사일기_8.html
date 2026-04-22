@@ -1,0 +1,1215 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<meta name="theme-color" content="#3B6D11" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="도성네농사일기" />
+<link rel="manifest" href="manifest.json" />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌱</text></svg>" />
+<title>도성네농사일기</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet" />
+<style>
+:root {
+  --green-dark: #2d5a0e;
+  --green: #3B6D11;
+  --green-mid: #639922;
+  --green-light: #a8c97f;
+  --green-pale: #eaf3de;
+  --green-soft: #f3f8ec;
+  --amber: #BA7517;
+  --amber-pale: #FAEEDA;
+  --blue: #185FA5;
+  --blue-pale: #E6F1FB;
+  --bg: #f7f5f0;
+  --surface: #ffffff;
+  --border: #e2ddd4;
+  --text: #1a1a14;
+  --text-sub: #5a5a4a;
+  --text-hint: #9a9a84;
+  --radius: 14px;
+  --radius-sm: 8px;
+  --shadow: 0 2px 12px rgba(0,0,0,0.07);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+body {
+  font-family: 'Noto Sans KR', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  padding-bottom: 80px;
+}
+/* Header */
+.header {
+  background: var(--green);
+  color: #fff;
+  padding: 52px 20px 16px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+.header-top { display: flex; align-items: center; justify-content: space-between; }
+.header h1 { font-size: 20px; font-weight: 700; letter-spacing: -0.3px; }
+.header-date { font-size: 12px; opacity: 0.8; margin-top: 2px; }
+.header-icon { font-size: 24px; }
+
+/* Bottom Nav */
+.bottom-nav {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  display: flex;
+  z-index: 200;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.nav-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 10px 4px 8px;
+  cursor: pointer;
+  border: none;
+  background: none;
+  color: var(--text-hint);
+  font-family: inherit;
+  font-size: 10px;
+  transition: color 0.15s;
+}
+.nav-btn.active { color: var(--green); }
+.nav-btn .nav-ico { font-size: 22px; line-height: 1; }
+
+/* Sections */
+.section { display: none; padding: 16px; }
+.section.active { display: block; }
+
+/* Card */
+.card {
+  background: var(--surface);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  padding: 16px;
+  margin-bottom: 12px;
+  box-shadow: var(--shadow);
+}
+
+/* Form */
+.field-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-sub);
+  letter-spacing: 0.3px;
+  margin-bottom: 8px;
+  margin-top: 16px;
+  text-transform: uppercase;
+}
+.field-label:first-child { margin-top: 0; }
+input[type=date], input[type=text], textarea, select {
+  width: 100%;
+  padding: 11px 14px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-size: 15px;
+  color: var(--text);
+  background: var(--surface);
+  outline: none;
+  transition: border-color 0.15s;
+  -webkit-appearance: none;
+}
+input:focus, textarea:focus, select:focus { border-color: var(--green-mid); }
+textarea { resize: vertical; min-height: 90px; line-height: 1.6; }
+
+/* Chip rows */
+.chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip {
+  padding: 7px 14px;
+  border-radius: 20px;
+  border: 1.5px solid var(--border);
+  background: var(--surface);
+  font-size: 13px;
+  cursor: pointer;
+  font-family: inherit;
+  color: var(--text-sub);
+  transition: all 0.15s;
+}
+.chip.sel-weather { background: var(--blue-pale); color: var(--blue); border-color: #85B7EB; }
+.chip.sel-crop { background: var(--green-pale); color: var(--green); border-color: var(--green-light); }
+.chip.sel-work { background: var(--amber-pale); color: var(--amber); border-color: #FAC775; }
+
+/* Save button */
+.btn-save {
+  width: 100%;
+  padding: 15px;
+  background: var(--green);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  margin-top: 20px;
+  letter-spacing: -0.2px;
+  transition: background 0.15s;
+}
+.btn-save:active { background: var(--green-dark); }
+.btn-clear {
+  width: 100%;
+  padding: 12px;
+  background: none;
+  color: var(--text-hint);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  margin-top: 8px;
+}
+
+/* Entry list */
+.entry-item {
+  display: flex;
+  gap: 12px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border);
+}
+.entry-item:last-child { border-bottom: none; }
+.entry-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  margin-top: 6px;
+  flex-shrink: 0;
+}
+.entry-date { font-size: 13px; font-weight: 700; color: var(--text-sub); }
+.entry-weather { font-size: 12px; color: var(--text-hint); margin-left: 6px; }
+.entry-tags { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0; }
+.tag-sm {
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 500;
+}
+.tag-crop { background: var(--green-pale); color: var(--green); }
+.tag-work { background: var(--amber-pale); color: var(--amber); }
+.entry-content { font-size: 14px; line-height: 1.6; color: var(--text); }
+.entry-memo { font-size: 12px; color: var(--text-hint); margin-top: 4px; }
+.btn-del {
+  padding: 4px 10px;
+  background: none;
+  border: 1px solid #f0c0c0;
+  border-radius: 6px;
+  color: #c0392b;
+  font-size: 12px;
+  cursor: pointer;
+  font-family: inherit;
+  flex-shrink: 0;
+  align-self: flex-start;
+}
+
+/* Filter */
+.filter-row { display: flex; gap: 8px; margin-bottom: 12px; }
+.filter-row select { flex: 1; font-size: 13px; padding: 9px 12px; }
+
+/* Empty */
+.empty { text-align: center; color: var(--text-hint); padding: 40px 0; font-size: 14px; }
+
+/* Stats */
+.stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 14px; }
+.stat-box { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 14px 10px; text-align: center; box-shadow: var(--shadow); }
+.stat-num { font-size: 24px; font-weight: 700; color: var(--green); }
+.stat-lbl { font-size: 11px; color: var(--text-hint); margin-top: 2px; }
+.bar-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.bar-lbl { width: 70px; font-size: 12px; color: var(--text-sub); text-align: right; }
+.bar-track { flex: 1; background: var(--bg); border-radius: 4px; height: 16px; overflow: hidden; }
+.bar-fill { height: 100%; border-radius: 4px; transition: width 0.4s; }
+.bar-val { font-size: 12px; font-weight: 700; min-width: 20px; }
+
+/* Calendar */
+.cal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.cal-nav { background: none; border: 1.5px solid var(--border); border-radius: 8px; width: 36px; height: 36px; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; }
+.cal-month { font-size: 16px; font-weight: 700; }
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
+.cal-dlbl { text-align: center; font-size: 11px; color: var(--text-hint); padding: 4px 0; }
+.cal-day {
+  aspect-ratio: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  font-size: 13px;
+  cursor: pointer;
+  position: relative;
+  border: 1.5px solid transparent;
+}
+.cal-day:active { background: var(--green-pale); }
+.cal-day.has-entry { background: var(--green-soft); }
+.cal-day.today { border-color: var(--green-mid); font-weight: 700; }
+.cal-day .cdot { width: 5px; height: 5px; border-radius: 50%; background: var(--green-mid); margin-top: 2px; }
+.cal-detail { margin-top: 14px; }
+
+/* Crop manager */
+.add-row { display: flex; gap: 8px; }
+.add-row input { flex: 1; }
+.btn-add {
+  padding: 11px 18px;
+  background: var(--green);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.crop-list-item { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.crop-list-item:last-child { border-bottom: none; }
+
+/* 사진 첨부 */
+.photo-upload-area {
+  border: 2px dashed var(--border);
+  border-radius: var(--radius-sm);
+  padding: 18px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  background: var(--bg);
+}
+.photo-upload-area:active { border-color: var(--green-mid); background: var(--green-soft); }
+.photo-upload-icon { font-size: 26px; margin-bottom: 4px; }
+.photo-upload-label { font-size: 13px; color: var(--text-sub); }
+.photo-upload-sub { font-size: 11px; color: var(--text-hint); margin-top: 2px; }
+.photo-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 10px; }
+.photo-thumb { position: relative; aspect-ratio: 1; border-radius: var(--radius-sm); overflow: hidden; border: 1px solid var(--border); }
+.photo-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.photo-thumb-del {
+  position: absolute; top: 4px; right: 4px;
+  width: 22px; height: 22px; border-radius: 50%;
+  background: rgba(0,0,0,0.55); color: #fff;
+  border: none; font-size: 14px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.photo-count { font-size: 11px; color: var(--text-hint); margin-top: 4px; text-align: right; }
+.entry-photos { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+.entry-photo-thumb { width: 70px; height: 70px; border-radius: 8px; object-fit: cover; border: 1px solid var(--border); cursor: pointer; }
+.photo-modal-bg {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.9); z-index: 999;
+  align-items: center; justify-content: center;
+  flex-direction: column; gap: 16px;
+}
+.photo-modal-bg.open { display: flex; }
+.photo-modal-img { max-width: 96vw; max-height: 80vh; border-radius: 10px; object-fit: contain; }
+.photo-modal-close {
+  background: rgba(255,255,255,0.18); border: none; color: #fff;
+  font-size: 22px; width: 42px; height: 42px; border-radius: 50%;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+}
+.photo-modal-nav {
+  display: flex; gap: 16px; align-items: center;
+}
+.photo-modal-navbtn {
+  background: rgba(255,255,255,0.18); border: none; color: #fff;
+  font-size: 20px; width: 40px; height: 40px; border-radius: 50%;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+}
+.photo-modal-counter { color: rgba(255,255,255,0.7); font-size: 13px; }
+
+/* 음성 입력 */
+.voice-wrap { position: relative; }
+.voice-wrap textarea { padding-right: 52px; }
+.btn-mic {
+  position: absolute;
+  right: 10px; bottom: 10px;
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  border: none;
+  background: var(--green);
+  color: #fff;
+  font-size: 18px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.15s, transform 0.1s;
+  box-shadow: 0 2px 8px rgba(59,109,17,0.3);
+}
+.btn-mic:active { transform: scale(0.93); }
+.btn-mic.listening {
+  background: #c0392b;
+  animation: pulse 1s infinite;
+}
+@keyframes pulse {
+  0%,100% { box-shadow: 0 0 0 0 rgba(192,57,43,0.4); }
+  50%      { box-shadow: 0 0 0 8px rgba(192,57,43,0); }
+}
+.voice-status {
+  font-size: 12px;
+  color: var(--text-hint);
+  margin-top: 6px;
+  min-height: 18px;
+  text-align: right;
+}
+.voice-status.active { color: #c0392b; font-weight: 500; }
+
+/* 농자재 구분 칩 */
+.sel-supcat { background: #f0e6fa; color: #7b2fa0; border-color: #c89de0; }
+
+/* 농자재 목록 아이템 */
+.supply-item {
+  display: flex;
+  gap: 12px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border);
+  align-items: flex-start;
+}
+.supply-item:last-child { border-bottom: none; }
+.supply-cat-badge {
+  padding: 3px 9px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.badge-농약   { background:#fde8e8; color:#c0392b; }
+.badge-비료   { background:var(--green-pale); color:var(--green); }
+.badge-농자재 { background:#e8eeff; color:#2851c0; }
+.badge-종자\/모종 { background:var(--amber-pale); color:var(--amber); }
+.badge-기타   { background:#f0f0f0; color:#555; }
+.supply-name  { font-size:15px; font-weight:700; color:var(--text); }
+.supply-sub   { font-size:12px; color:var(--text-hint); margin-top:3px; }
+.supply-price { font-size:15px; font-weight:700; color:var(--green-dark); white-space:nowrap; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-top">
+    <div>
+      <h1>🌱 도성네농사일기</h1>
+      <div class="header-date" id="today-date"></div>
+    </div>
+    <div class="header-icon">🌾</div>
+  </div>
+</div>
+
+<!-- Bottom Nav -->
+<nav class="bottom-nav">
+  <button class="nav-btn active" onclick="goTab('write',this)">
+    <span class="nav-ico">✏️</span>일지쓰기
+  </button>
+  <button class="nav-btn" onclick="goTab('list',this)">
+    <span class="nav-ico">📋</span>목록
+  </button>
+  <button class="nav-btn" onclick="goTab('calendar',this)">
+    <span class="nav-ico">📅</span>달력
+  </button>
+  <button class="nav-btn" onclick="goTab('stats',this)">
+    <span class="nav-ico">📊</span>통계
+  </button>
+  <button class="nav-btn" onclick="goTab('crops',this)">
+    <span class="nav-ico">🌿</span>작물
+  </button>
+  <button class="nav-btn" onclick="goTab('supply',this)">
+    <span class="nav-ico">🧴</span>자재
+  </button>
+  <button class="nav-btn" onclick="goTab('backup',this)">
+    <span class="nav-ico">💾</span>백업
+  </button>
+</nav>
+
+<!-- 일지 쓰기 -->
+<section class="section active" id="sec-write">
+  <div class="card">
+    <div class="field-label">날짜</div>
+    <input type="date" id="entry-date" />
+
+    <div class="field-label">날씨</div>
+    <div class="chip-row" id="weather-chips">
+      <button class="chip sel-weather" data-w="맑음" onclick="pickWeather(this)">☀️ 맑음</button>
+      <button class="chip" data-w="흐림" onclick="pickWeather(this)">☁️ 흐림</button>
+      <button class="chip" data-w="비" onclick="pickWeather(this)">🌧️ 비</button>
+      <button class="chip" data-w="눈" onclick="pickWeather(this)">❄️ 눈</button>
+      <button class="chip" data-w="바람" onclick="pickWeather(this)">💨 바람</button>
+    </div>
+
+    <div class="field-label">작물</div>
+    <div class="chip-row" id="crop-chips"></div>
+
+    <div class="field-label">작업 종류</div>
+    <div class="chip-row" id="work-chips">
+      <button class="chip" onclick="toggleWork(this)">파종</button>
+      <button class="chip" onclick="toggleWork(this)">이식</button>
+      <button class="chip" onclick="toggleWork(this)">물주기</button>
+      <button class="chip" onclick="toggleWork(this)">비료</button>
+      <button class="chip" onclick="toggleWork(this)">병해충 방제</button>
+      <button class="chip" onclick="toggleWork(this)">제초</button>
+      <button class="chip" onclick="toggleWork(this)">수확</button>
+      <button class="chip" onclick="toggleWork(this)">정지 작업</button>
+      <button class="chip" onclick="toggleWork(this)">기타</button>
+    </div>
+
+    <div class="field-label">작업 내용</div>
+    <div class="voice-wrap">
+      <textarea id="entry-content" placeholder="오늘의 농작업 내용을 자유롭게 적어주세요... (🎤 버튼으로 말하기 가능)"></textarea>
+      <button class="btn-mic" id="mic-content" onclick="toggleVoice('content')" title="음성 입력">🎤</button>
+    </div>
+    <div class="voice-status" id="voice-status-content"></div>
+
+    <div class="field-label">특이사항 / 메모</div>
+    <div class="voice-wrap">
+      <input type="text" id="entry-memo" placeholder="생육 상태, 병해충, 날씨 이상 등" style="padding-right:52px;" />
+      <button class="btn-mic" id="mic-memo" onclick="toggleVoice('memo')" title="음성 입력" style="bottom:6px;">🎤</button>
+    </div>
+    <div class="voice-status" id="voice-status-memo"></div>
+
+    <div class="field-label">사진 첨부</div>
+    <input type="file" id="photo-input" accept="image/*" multiple style="display:none;" onchange="handlePhotos(this)" />
+    <div class="photo-upload-area" onclick="document.getElementById('photo-input').click()">
+      <div class="photo-upload-icon">📷</div>
+      <div class="photo-upload-label">사진을 추가하려면 여기를 누르세요</div>
+      <div class="photo-upload-sub">카메라 촬영 또는 갤러리에서 선택 · 최대 5장</div>
+    </div>
+    <div class="photo-grid" id="photo-preview"></div>
+    <div class="photo-count" id="photo-count"></div>
+
+    <button class="btn-save" onclick="saveEntry()">저장하기</button>
+    <button class="btn-clear" onclick="clearForm()">초기화</button>
+  </div>
+</section>
+
+<!-- 농자재 구매 -->
+<section class="section" id="sec-supply">
+
+  <!-- 입력 카드 -->
+  <div class="card">
+    <div style="font-size:15px;font-weight:700;margin-bottom:14px;">🧴 구매 기록 추가</div>
+
+    <div class="field-label">구매일</div>
+    <input type="date" id="sup-date" />
+
+    <div class="field-label">구분</div>
+    <div class="chip-row" id="sup-cat-chips">
+      <button class="chip sup-cat-chip sel-supcat" data-cat="농약" onclick="pickSupCat(this)">🧪 농약</button>
+      <button class="chip sup-cat-chip" data-cat="비료" onclick="pickSupCat(this)">🌱 비료</button>
+      <button class="chip sup-cat-chip" data-cat="농자재" onclick="pickSupCat(this)">🔧 농자재</button>
+      <button class="chip sup-cat-chip" data-cat="종자/모종" onclick="pickSupCat(this)">🌾 종자/모종</button>
+      <button class="chip sup-cat-chip" data-cat="기타" onclick="pickSupCat(this)">📦 기타</button>
+    </div>
+
+    <div class="field-label">품목명</div>
+    <input type="text" id="sup-name" placeholder="예: 새빛 살균제, 복합비료 20kg..." />
+
+    <div class="field-label">구매처</div>
+    <input type="text" id="sup-store" placeholder="예: 농협, 시골마트..." />
+
+    <div class="field-label">수량 / 단위</div>
+    <div style="display:flex;gap:8px;">
+      <input type="text" id="sup-qty" placeholder="수량" style="flex:1;" oninput="calcUnitPrice()" />
+      <select id="sup-unit" style="flex:1;">
+        <option>개</option><option>병</option><option>포</option><option>kg</option><option>L</option><option>박스</option><option>롤</option><option>묶음</option>
+      </select>
+    </div>
+
+    <div class="field-label">구매금액 (원)</div>
+    <input type="text" id="sup-price" placeholder="예: 35000" inputmode="numeric" oninput="calcUnitPrice()" />
+
+    <div class="field-label">개당 단가 (원)</div>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <input type="text" id="sup-unit-price" placeholder="수량과 금액 입력시 자동계산" inputmode="numeric" style="flex:1;" readonly />
+      <div style="font-size:12px;color:var(--text-hint);white-space:nowrap;">자동계산</div>
+    </div>
+
+    <div class="field-label">메모</div>
+    <input type="text" id="sup-memo" placeholder="용도, 희석배수, 안전기간 등" />
+
+    <button class="btn-save" onclick="saveSupply()">저장하기</button>
+    <button class="btn-clear" onclick="clearSupplyForm()">초기화</button>
+  </div>
+
+  <!-- 필터 + 목록 -->
+  <div class="filter-row">
+    <select id="sup-filter-cat" onchange="renderSupplyList()">
+      <option value="">전체 구분</option>
+      <option>농약</option><option>비료</option><option>농자재</option><option>종자/모종</option><option>기타</option>
+    </select>
+    <select id="sup-filter-month" onchange="renderSupplyList()">
+      <option value="">전체 월</option>
+    </select>
+  </div>
+
+  <!-- 요약 -->
+  <div class="stat-grid" id="sup-stat-grid" style="margin-bottom:12px;"></div>
+
+  <div class="card" id="supply-list"></div>
+</section>
+
+<!-- 사진 전체보기 모달 -->
+<div class="photo-modal-bg" id="photo-modal" onclick="closeModal(event)">
+  <button class="photo-modal-close" onclick="closePhotoModal()">✕</button>
+  <img class="photo-modal-img" id="modal-img" src="" alt="사진 전체보기" />
+  <div class="photo-modal-nav">
+    <button class="photo-modal-navbtn" id="modal-prev" onclick="modalNav(-1)">◀</button>
+    <span class="photo-modal-counter" id="modal-counter"></span>
+    <button class="photo-modal-navbtn" id="modal-next" onclick="modalNav(1)">▶</button>
+  </div>
+</div>
+
+<!-- 목록 -->
+<section class="section" id="sec-list">
+  <div class="filter-row">
+    <select id="filter-crop" onchange="renderList()"><option value="">전체 작물</option></select>
+    <select id="filter-month" onchange="renderList()"><option value="">전체 월</option></select>
+  </div>
+  <div class="card" id="entry-list"></div>
+</section>
+
+<!-- 달력 -->
+<section class="section" id="sec-calendar">
+  <div class="card">
+    <div class="cal-header">
+      <button class="cal-nav" onclick="changeMonth(-1)">◀</button>
+      <span class="cal-month" id="cal-title"></span>
+      <button class="cal-nav" onclick="changeMonth(1)">▶</button>
+    </div>
+    <div class="cal-grid" id="cal-grid"></div>
+    <div class="cal-detail" id="cal-detail"></div>
+  </div>
+</section>
+
+<!-- 통계 -->
+<section class="section" id="sec-stats">
+  <div class="stat-grid" id="stat-grid"></div>
+  <div class="card">
+    <div style="font-size:13px;font-weight:700;color:var(--text-sub);margin-bottom:12px;">작물별 기록</div>
+    <div id="crop-bars"></div>
+  </div>
+  <div class="card">
+    <div style="font-size:13px;font-weight:700;color:var(--text-sub);margin-bottom:12px;">작업별 빈도</div>
+    <div id="work-bars"></div>
+  </div>
+</section>
+
+<!-- 작물 관리 -->
+<section class="section" id="sec-crops">
+  <div class="card">
+    <div class="field-label" style="margin-top:0;">작물 추가</div>
+    <div class="add-row">
+      <input type="text" id="new-crop" placeholder="예: 고추, 배추, 감자..." />
+      <button class="btn-add" onclick="addCrop()">추가</button>
+    </div>
+    <div id="crop-mgr-list" style="margin-top:12px;"></div>
+  </div>
+</section>
+
+<!-- 백업/복원 -->
+<section class="section" id="sec-backup">
+  <div class="card">
+    <div style="font-size:15px;font-weight:700;margin-bottom:4px;">📤 데이터 내보내기 (백업)</div>
+    <div style="font-size:13px;color:var(--text-hint);margin-bottom:14px;">모든 기록을 파일로 저장합니다. PC나 핸드폰에 보관하세요.</div>
+    <button class="btn-save" onclick="exportData()" style="margin-top:0;">💾 백업 파일 저장하기</button>
+  </div>
+
+  <div class="card">
+    <div style="font-size:15px;font-weight:700;margin-bottom:4px;">📥 데이터 불러오기 (복원)</div>
+    <div style="font-size:13px;color:var(--text-hint);margin-bottom:14px;">저장해둔 백업 파일을 불러옵니다. 기존 데이터는 덮어씌워집니다.</div>
+    <input type="file" id="import-file" accept=".json" style="display:none;" onchange="importData(this)" />
+    <button class="btn-save" onclick="document.getElementById('import-file').click()" style="margin-top:0;background:var(--blue);">📂 백업 파일 불러오기</button>
+  </div>
+
+  <div class="card">
+    <div style="font-size:15px;font-weight:700;margin-bottom:4px;">📊 현재 데이터 현황</div>
+    <div id="backup-stats" style="margin-top:8px;"></div>
+  </div>
+</section>
+
+<script>
+const ENTRY_KEY  = 'fj_entries_v1';
+const CROP_KEY   = 'fj_crops_v1';
+const SUPPLY_KEY = 'fj_supply_v1';
+
+let entries = [];
+let crops   = ['인삼','고추','더덕','옥수수','벼','배추','감자','콩','상추','토마토'];
+let supplies = [];
+let selSupCat = '농약';
+let selWeather = '맑음';
+let selCrops = [];
+let selWorks = [];
+let selPhotos = []; // base64 배열
+let calYear, calMonth;
+let modalPhotos = [], modalIdx = 0;
+
+function load() {
+  try { entries = JSON.parse(localStorage.getItem(ENTRY_KEY)) || []; } catch(e){ entries=[]; }
+  try { const c = JSON.parse(localStorage.getItem(CROP_KEY)); if(c) crops=c; } catch(e){}
+  try { supplies = JSON.parse(localStorage.getItem(SUPPLY_KEY)) || []; } catch(e){ supplies=[]; }
+}
+function save() {
+  localStorage.setItem(ENTRY_KEY,  JSON.stringify(entries));
+  localStorage.setItem(CROP_KEY,   JSON.stringify(crops));
+  localStorage.setItem(SUPPLY_KEY, JSON.stringify(supplies));
+}
+
+function init() {
+  const now = new Date();
+  calYear  = now.getFullYear();
+  calMonth = now.getMonth();
+  document.getElementById('entry-date').value = toDateStr(now);
+  document.getElementById('sup-date').value   = toDateStr(now);
+  document.getElementById('today-date').textContent =
+    now.toLocaleDateString('ko-KR', {year:'numeric',month:'long',day:'numeric',weekday:'long'});
+  renderCropChips();
+}
+
+function toDateStr(d) {
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+
+function goTab(name, btn) {
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('sec-'+name).classList.add('active');
+  btn.classList.add('active');
+  if(name==='list')     renderList();
+  if(name==='calendar') renderCalendar();
+  if(name==='stats')    renderStats();
+  if(name==='crops')    renderCropMgr();
+  if(name==='supply')   renderSupplyList();
+  if(name==='backup')   renderBackupStats();
+}
+
+function pickWeather(el) {
+  document.querySelectorAll('#weather-chips .chip').forEach(b=>{b.classList.remove('sel-weather');});
+  el.classList.add('sel-weather');
+  selWeather = el.dataset.w;
+}
+function toggleWork(el) {
+  const w = el.textContent;
+  el.classList.toggle('sel-work');
+  if(el.classList.contains('sel-work')) { if(!selWorks.includes(w)) selWorks.push(w); }
+  else selWorks = selWorks.filter(x=>x!==w);
+}
+function toggleCrop(el) {
+  const c = el.textContent;
+  el.classList.toggle('sel-crop');
+  if(el.classList.contains('sel-crop')) { if(!selCrops.includes(c)) selCrops.push(c); }
+  else selCrops = selCrops.filter(x=>x!==c);
+}
+function renderCropChips() {
+  document.getElementById('crop-chips').innerHTML =
+    crops.map(c=>`<button class="chip${selCrops.includes(c)?' sel-crop':''}" onclick="toggleCrop(this)">${c}</button>`).join('');
+}
+
+function saveEntry() {
+  const date    = document.getElementById('entry-date').value;
+  const content = document.getElementById('entry-content').value.trim();
+  if(!date) { alert('날짜를 선택해주세요.'); return; }
+  if(!content && selWorks.length===0 && selPhotos.length===0) { alert('내용을 입력하거나 작업/사진을 추가해주세요.'); return; }
+  entries.unshift({
+    id: Date.now(), date,
+    weather: selWeather,
+    crops: [...selCrops],
+    works: [...selWorks],
+    content,
+    memo: document.getElementById('entry-memo').value.trim(),
+    photos: [...selPhotos]
+  });
+  save();
+  clearForm();
+  alert('저장되었습니다! ✅');
+}
+
+function clearForm() {
+  document.getElementById('entry-date').value = toDateStr(new Date());
+  document.getElementById('entry-content').value = '';
+  document.getElementById('entry-memo').value = '';
+  selCrops=[]; selWorks=[]; selPhotos=[];
+  renderCropChips();
+  document.querySelectorAll('#work-chips .chip').forEach(b=>b.classList.remove('sel-work'));
+  document.querySelectorAll('#weather-chips .chip').forEach(b=>b.classList.remove('sel-weather'));
+  document.querySelector('[data-w="맑음"]').classList.add('sel-weather');
+  selWeather='맑음';
+  document.getElementById('photo-preview').innerHTML='';
+  document.getElementById('photo-count').textContent='';
+  document.getElementById('photo-input').value='';
+}
+
+function delEntry(id) {
+  if(!confirm('이 기록을 삭제할까요?')) return;
+  entries = entries.filter(e=>e.id!==id);
+  save(); renderList();
+}
+
+const wico = {맑음:'☀️',흐림:'☁️',비:'🌧️',눈:'❄️',바람:'💨'};
+const dotColors = ['#639922','#185FA5','#BA7517','#993556','#3B6D11','#534AB7'];
+function dotColor(crop) {
+  if(!crop) return '#888';
+  let h=0; for(let c of crop) h+=c.charCodeAt(0);
+  return dotColors[h%dotColors.length];
+}
+
+function entryHTML(e, showDel=true) {
+  const photoHTML = (e.photos && e.photos.length)
+    ? `<div class="entry-photos">${e.photos.map((p,i)=>`<img class="entry-photo-thumb" src="${p}" alt="사진${i+1}" onclick="openPhotoModal(${e.id},${i})" />`).join('')}</div>`
+    : '';
+  return `<div class="entry-item">
+    <div class="entry-dot" style="background:${dotColor(e.crops[0])}"></div>
+    <div style="flex:1;min-width:0;">
+      <div><span class="entry-date">${e.date}</span><span class="entry-weather">${wico[e.weather]||''} ${e.weather}</span>${e.photos&&e.photos.length?`<span style="font-size:11px;color:var(--text-hint);margin-left:6px;">📷 ${e.photos.length}장</span>`:''}</div>
+      <div class="entry-tags">
+        ${e.crops.map(c=>`<span class="tag-sm tag-crop">${c}</span>`).join('')}
+        ${e.works.map(w=>`<span class="tag-sm tag-work">${w}</span>`).join('')}
+      </div>
+      ${e.content?`<div class="entry-content">${e.content}</div>`:''}
+      ${e.memo?`<div class="entry-memo">📌 ${e.memo}</div>`:''}
+      ${photoHTML}
+    </div>
+    ${showDel?`<button class="btn-del" onclick="delEntry(${e.id})">삭제</button>`:''}
+  </div>`;
+}
+
+function renderList() {
+  const fc = document.getElementById('filter-crop');
+  const fm = document.getElementById('filter-month');
+  const fcv = fc.value, fmv = fm.value;
+  const allCrops  = [...new Set(entries.flatMap(e=>e.crops))];
+  const allMonths = [...new Set(entries.map(e=>e.date.slice(0,7)))].sort().reverse();
+  fc.innerHTML = '<option value="">전체 작물</option>'+allCrops.map(c=>`<option value="${c}"${fcv===c?' selected':''}>${c}</option>`).join('');
+  fm.innerHTML = '<option value="">전체 월</option>'+allMonths.map(m=>`<option value="${m}"${fmv===m?' selected':''}>${m}</option>`).join('');
+  const list = entries.filter(e=>{
+    if(fcv && !e.crops.includes(fcv)) return false;
+    if(fmv && !e.date.startsWith(fmv)) return false;
+    return true;
+  });
+  const container = document.getElementById('entry-list');
+  container.innerHTML = list.length ? list.map(e=>entryHTML(e)).join('') : '<div class="empty">기록이 없습니다</div>';
+}
+
+function renderCalendar() {
+  document.getElementById('cal-title').textContent = `${calYear}년 ${calMonth+1}월`;
+  const dlbls = ['일','월','화','수','목','금','토'];
+  const first = new Date(calYear, calMonth, 1).getDay();
+  const days  = new Date(calYear, calMonth+1, 0).getDate();
+  const today = toDateStr(new Date());
+  const byDate = {};
+  entries.forEach(e=>{ if(e.date.startsWith(`${calYear}-${String(calMonth+1).padStart(2,'0')}`)) byDate[e.date]=(byDate[e.date]||0)+1; });
+  let h = dlbls.map(d=>`<div class="cal-dlbl">${d}</div>`).join('');
+  h += Array(first).fill('<div></div>').join('');
+  for(let d=1;d<=days;d++){
+    const ds=`${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const has=!!byDate[ds], isToday=ds===today;
+    h+=`<div class="cal-day${has?' has-entry':''}${isToday?' today':''}" onclick="showDay('${ds}')">${d}${has?`<div class="cdot"></div>`:''}`;
+    if(byDate[ds]>1) h+=`<div style="font-size:9px;color:var(--green);">${byDate[ds]}</div>`;
+    h+='</div>';
+  }
+  document.getElementById('cal-grid').innerHTML = h;
+  document.getElementById('cal-detail').innerHTML = '';
+}
+function changeMonth(d){
+  calMonth+=d;
+  if(calMonth>11){calMonth=0;calYear++;}
+  if(calMonth<0){calMonth=11;calYear--;}
+  renderCalendar();
+}
+function showDay(ds){
+  const dayE = entries.filter(e=>e.date===ds);
+  const det = document.getElementById('cal-detail');
+  if(!dayE.length){ det.innerHTML=`<div class="empty">${ds} 기록 없음</div>`; return; }
+  det.innerHTML=`<div style="font-size:13px;font-weight:700;color:var(--text-sub);margin-bottom:8px;">${ds} 기록</div>`+dayE.map(e=>entryHTML(e,false)).join('');
+}
+
+function renderStats(){
+  const total=entries.length;
+  const cropCount={}, workCount={};
+  entries.forEach(e=>{
+    e.crops.forEach(c=>cropCount[c]=(cropCount[c]||0)+1);
+    e.works.forEach(w=>workCount[w]=(workCount[w]||0)+1);
+  });
+  const months=[...new Set(entries.map(e=>e.date.slice(0,7)))];
+  document.getElementById('stat-grid').innerHTML=`
+    <div class="stat-box"><div class="stat-num">${total}</div><div class="stat-lbl">총 기록</div></div>
+    <div class="stat-box"><div class="stat-num">${Object.keys(cropCount).length}</div><div class="stat-lbl">작물 종류</div></div>
+    <div class="stat-box"><div class="stat-num">${months.length}</div><div class="stat-lbl">기록 월수</div></div>
+  `;
+  const mc=Math.max(1,...Object.values(cropCount));
+  document.getElementById('crop-bars').innerHTML=Object.entries(cropCount).sort((a,b)=>b[1]-a[1]).map(([c,n])=>
+    `<div class="bar-row"><div class="bar-lbl">${c}</div><div class="bar-track"><div class="bar-fill" style="width:${Math.round(n/mc*100)}%;background:var(--green-mid);"></div></div><div class="bar-val">${n}</div></div>`
+  ).join('')||'<div class="empty">기록 없음</div>';
+  const mw=Math.max(1,...Object.values(workCount));
+  document.getElementById('work-bars').innerHTML=Object.entries(workCount).sort((a,b)=>b[1]-a[1]).map(([w,n])=>
+    `<div class="bar-row"><div class="bar-lbl" style="width:90px;">${w}</div><div class="bar-track"><div class="bar-fill" style="width:${Math.round(n/mw*100)}%;background:var(--amber);"></div></div><div class="bar-val">${n}</div></div>`
+  ).join('')||'<div class="empty">기록 없음</div>';
+}
+
+function renderCropMgr(){
+  document.getElementById('crop-mgr-list').innerHTML=crops.map(c=>
+    `<div class="crop-list-item">
+      <span style="font-size:14px;">${c}</span>
+      <button class="btn-del" onclick="removeCrop('${c}')">삭제</button>
+    </div>`
+  ).join('');
+}
+function addCrop(){
+  const inp=document.getElementById('new-crop');
+  const name=inp.value.trim();
+  if(!name){return;}
+  if(crops.includes(name)){alert('이미 있는 작물입니다.');return;}
+  crops.push(name); save(); inp.value='';
+  renderCropMgr(); renderCropChips();
+}
+function removeCrop(name){
+  if(!confirm(`"${name}" 삭제할까요?`)) return;
+  crops=crops.filter(c=>c!==name); save();
+  renderCropMgr(); renderCropChips();
+}
+
+load(); init();
+
+// ---- 사진 첨부 ----
+function handlePhotos(input) {
+  const MAX = 5;
+  const files = Array.from(input.files);
+  const remaining = MAX - selPhotos.length;
+  if(remaining <= 0) { alert('사진은 최대 5장까지 첨부할 수 있습니다.'); input.value=''; return; }
+  const toAdd = files.slice(0, remaining);
+  if(files.length > remaining) alert(`최대 5장까지만 첨부됩니다. ${toAdd.length}장이 추가됩니다.`);
+  let loaded = 0;
+  toAdd.forEach(file => {
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      // 리사이즈: 최대 1200px
+      const img = new Image();
+      img.onload = () => {
+        const MAX_DIM = 1200;
+        let w = img.width, h = img.height;
+        if(w > MAX_DIM || h > MAX_DIM) {
+          if(w > h) { h = Math.round(h * MAX_DIM / w); w = MAX_DIM; }
+          else      { w = Math.round(w * MAX_DIM / h); h = MAX_DIM; }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width=w; canvas.height=h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+        selPhotos.push(dataUrl);
+        loaded++;
+        if(loaded === toAdd.length) renderPhotoPreview();
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+  input.value = '';
+}
+
+function renderPhotoPreview() {
+  const grid = document.getElementById('photo-preview');
+  const count = document.getElementById('photo-count');
+  grid.innerHTML = selPhotos.map((p,i) =>
+    `<div class="photo-thumb">
+      <img src="${p}" alt="첨부사진${i+1}" />
+      <button class="photo-thumb-del" onclick="removePhoto(${i})">✕</button>
+    </div>`
+  ).join('');
+  count.textContent = selPhotos.length ? `${selPhotos.length}/5장` : '';
+}
+
+function removePhoto(idx) {
+  selPhotos.splice(idx, 1);
+  renderPhotoPreview();
+}
+
+// ---- 사진 모달 ----
+function openPhotoModal(entryId, idx) {
+  const entry = entries.find(e => e.id === entryId);
+  if(!entry || !entry.photos || !entry.photos.length) return;
+  modalPhotos = entry.photos;
+  modalIdx = idx;
+  updateModal();
+  document.getElementById('photo-modal').classList.add('open');
+}
+
+function updateModal() {
+  document.getElementById('modal-img').src = modalPhotos[modalIdx];
+  document.getElementById('modal-counter').textContent = `${modalIdx+1} / ${modalPhotos.length}`;
+  document.getElementById('modal-prev').style.visibility = modalIdx > 0 ? 'visible' : 'hidden';
+  document.getElementById('modal-next').style.visibility = modalIdx < modalPhotos.length-1 ? 'visible' : 'hidden';
+}
+
+function modalNav(dir) {
+  modalIdx = Math.max(0, Math.min(modalPhotos.length-1, modalIdx+dir));
+  updateModal();
+}
+
+function closePhotoModal() {
+  document.getElementById('photo-modal').classList.remove('open');
+  modalPhotos=[]; modalIdx=0;
+}
+
+function closeModal(e) {
+  if(e.target === document.getElementById('photo-modal')) closePhotoModal();
+}
+
+// ---- 백업 / 복원 ----
+function exportData() {
+  const data = {
+    version: 1,
+    exportDate: new Date().toISOString(),
+    entries,
+    crops,
+    supplies
+  };
+  const json = JSON.stringify(data, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  const date = toDateStr(new Date()).replace(/-/g, '');
+  a.href     = url;
+  a.download = `농사일지_백업_${date}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  setTimeout(() => renderBackupStats(), 300);
+}
+
+function importData(input) {
+  const file = input.files[0];
+  if (!file) return;
+  if (!confirm('백업 파일을 불러오면 현재 데이터가 덮어씌워집니다.\n계속할까요?')) {
+    input.value = ''; return;
+  }
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    try {
+      const data = JSON.parse(ev.target.result);
+      if (!data.version || !Array.isArray(data.entries)) {
+        alert('올바른 백업 파일이 아닙니다.'); return;
+      }
+      entries   = data.entries   || [];
+      crops     = data.crops     || [];
+      supplies  = data.supplies  || [];
+      save();
+      renderCropChips();
+      renderBackupStats();
+      alert(`불러오기 완료! ✅\n일지 ${entries.length}건, 자재 ${supplies.length}건 복원됐습니다.`);
+    } catch(e) {
+      alert('파일을 읽는 중 오류가 발생했습니다.');
+    }
+    input.value = '';
+  };
+  reader.readAsText(file);
+}
+
+function renderBackupStats() {
+  const lastEntry = entries.length ? entries[0].date : '-';
+  document.getElementById('backup-stats').innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      <div class="stat-box"><div class="stat-num">${entries.length}</div><div class="stat-lbl">일지 기록</div></div>
+      <div class="stat-box"><div class="stat-num">${supplies.length}</div><div class="stat-lbl">자재 기록</div></div>
+      <div class="stat-box"><div class="stat-num">${crops.length}</div><div class="stat-lbl">등록 작물</div></div>
+      <div class="stat-box"><div class="stat-num" style="font-size:13px;">${lastEntry}</div><div class="stat-lbl">최근 기록일</div></div>
+    </div>
+  `;
+}
+
+
+let recognition = null;
+let currentVoiceTarget = null;
+
+function initVoice() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) return null;
+  const r = new SpeechRecognition();
+  r.lang = 'ko-KR';
+  r.continuous = true;
+  r.interimResults = true;
+  return r;
+}
+
+function toggleVoice(target) {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) {
+    alert('이 브라우저는 음성 입력을 지원하지 않습니다.\n크롬(Chrome) 브라우저를 사용해 주세요.');
+    return;
+  }
+  // 다른 타겟 녹음 중이면 먼저 중지
+  if (recognition && currentVoiceTarget && currentVoiceTarget !== target) {
+    stopVoice(currentVoiceTarget);
+  }
+  const micBtn = document.getElementById('mic-' + target);
+  if (micBtn.classList.contains('listening')) {
+    stopVoice(target);
+  } else {
+    startVoice(target);
+  }
+}
+
+function startVoice(target) {
+  recognition = initVoice();
+  if (!recognition) return;
+  currentVoiceTarget = target;
+
+  const micBtn    = document.getElementById('mic-' + target);
+  const statusEl  = document.getElementById('voice-status-' + target);
+  const inputEl   = document.getElementById('entry-' + (target === 'content' ? 'content' : 'memo'));
+  const baseText  = inputEl.value;
+  let interim     = '';
+
+  micBtn.classList.add('listening');
+  micBtn.textContent = '⏹';
+  statusEl.textContent = '🔴 듣는 중... (완료되면 다시 누르세요)';
+  statusEl.classList.add('active');
+
+  recognition.onresult = (e) => {
+    let finalChunk = '';
+    interim = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      if (e.results[i].isFinal) finalChunk += e.results[i][0].transcript;
+      else interim += e.results[i][0].transcript;
+    }
+    if (finalChunk) {
+      const sep = baseText && !baseText.endsWith(' ') && !baseText.endsWith('\n') ? ' ' : '';
+      inputEl.value = baseText + (inputEl.value.slice(baseText.length).trimStart() ? inputEl.value.slice(baseText.length).trimStart() + ' ' : '') + finalChunk;
+    }
+    if (interim) statusEl.textContent = '🔴 ' + interim + '...';
+  };
+
+  recognition.onerror = (e) => {
+    if (e.error === 'no-speech') return;
+    statusEl.textContent = '오류: ' + e.error;
+    stopVoice(target);
+  };
+
+  recognition.onend = () => {
+    if (micBtn.classList.contains('listening')) recognition.start();
+  };
+
+  recognition.start();
+}
+
+function stopVoice(target) {
+  if (recognition) { recognition.onend = null; recognition.stop(); recognition = null; }
+  currentVoiceTarget = null;
+  const micBtn   = document.getElementById('mic-' + target);
+  const statusEl = document.getElementById('voice-status-' + target);
+  micBtn.classList.remove('listening');
+  micBtn.textContent = '🎤';
+  statusEl.textContent = '✅ 음성 입력 완료';
+  statusEl.classList.remove('active');
+  setTimeout(() => { statusEl.textContent = ''; }, 2000);
+}
+// ---- 농자재 구매 기록 ----
+const supCatIcon = {'농약':'🧪','비료':'🌱','농자재':'🔧','종자/모종':'🌾','기타':'📦'};
+
+function pickSupCat(el) {
+  document.querySelectorAll('.sup-cat-chip').forEach(b => b.classList.remove('sel-supcat'));
+  el.classList.add('sel-supcat');
+  selSupCat = el.dataset.cat;
+}
+
+function saveSupply() {
+  const date  = document.getElementById('sup-date').value;
+  const name  = document.getElementById('sup-name').value.trim();
+  const store = document.getElementById('sup-store').value.trim();
+  const qty   = document.getElementById('sup-qty').value.trim();
+  const unit  = document.getElementById('sup-unit').value;
+  const priceRaw = document.getElementById('sup-price').value.replace(/,/g,'').trim();
+  const unitPriceRaw = document.getElementById('sup-unit-price').value.replace(/,/g,'').trim();
+  const memo  = document.getElementById('sup-memo').value.trim();
+  if (!date) { alert('구매일을 선택해주세요.'); return; }
+  if (!name) { alert('품목명을 입력해주세요.'); return; }
+  const price     = priceRaw     ? parseInt(priceRaw, 10)     : null;
+  const unitPrice = unitPriceRaw ? parseInt(unitPriceRaw, 10) : null;
+  supplies.unshift({ id: Date.now(), date, cat: selSupCat, name, store, qty, unit, price, unitPrice, memo });
+  save();
+  clearSupplyForm();
+  alert('저장되었습니다! ✅');
+  renderSupplyList();
+}
+
+function clearSupplyForm() {
+  document.getElementById('sup-date').value       = toDateStr(new Date());
+  document.getElementById('sup-name').value       = '';
+  document.getElementById('sup-store').value      = '';
+  document.getElementById('sup-qty').value        = '';
+  document.getElementById('sup-unit').value       = '개';
+  document.getElementById('sup-price').value      = '';
+  document.getElementById('sup-unit-price').value = '';
+  document.getElementById('sup-memo').value       = '';
+  selSupCat = '농약';
+  document.querySelectorAll('.sup-cat-chip').forEach(b => b.classList.remove('sel-supcat'));
+  document.querySelector('[data-cat="농약"]').classList.add('sel-supcat');
+}
+
+function calcUnitPrice() {
+  const price = parseInt(document.getElementById('sup-price').value.replace(/,/g,'')) || 0;
+  const qty   = parseFloat(document.getElementById('sup-qty').value) || 0;
+  const el    = document.getElementById('sup-unit-price');
+  if (price > 0 && qty > 0) {
+    el.value = Math.round(price / qty).toLocaleString();
+  } else {
+    el.value = '';
+  }
+}
+
+function delSupply(id) {
+  if (!confirm('이 기록을 삭제할까요?')) return;
+  supplies = supplies.filter(s => s.id !== id);
+  save(); renderSupplyList();
+}
+
+function renderSupplyList() {
+  const fcat   = document.getElementById('sup-filter-cat').value;
+  const fmonth = document.getElementById('sup-filter-month');
+
+  const allMonths = [...new Set(supplies.map(s => s.date.slice(0,7)))].sort().reverse();
+  const prevMonth = fmonth.value;
+  fmonth.innerHTML = '<option value="">전체 월</option>' +
+    allMonths.map(m => `<option value="${m}"${prevMonth===m?' selected':''}>${m}</option>`).join('');
+  const fmv = fmonth.value;
+
+  const list = supplies.filter(s => {
+    if (fcat  && s.cat  !== fcat)          return false;
+    if (fmv   && !s.date.startsWith(fmv))  return false;
+    return true;
+  });
+
+  const totalCount = list.length;
+  const totalPrice = list.reduce((sum, s) => sum + (s.price || 0), 0);
+  const catSet     = [...new Set(list.map(s => s.cat))].length;
+  document.getElementById('sup-stat-grid').innerHTML = `
+    <div class="stat-box"><div class="stat-num">${totalCount}</div><div class="stat-lbl">총 구매 건</div></div>
+    <div class="stat-box"><div class="stat-num">${catSet}</div><div class="stat-lbl">구분 수</div></div>
+    <div class="stat-box"><div class="stat-num" style="font-size:16px;">${totalPrice ? totalPrice.toLocaleString()+'원' : '-'}</div><div class="stat-lbl">총 금액</div></div>
+  `;
+
+  const container = document.getElementById('supply-list');
+  if (!list.length) { container.innerHTML = '<div class="empty">구매 기록이 없습니다</div>'; return; }
+  container.innerHTML = list.map(s => {
+    const badgeClass = 'badge-' + s.cat.replace('/','\\/');
+    return `<div class="supply-item">
+      <div style="flex:1;min-width:0;">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <span class="supply-cat-badge ${badgeClass}">${supCatIcon[s.cat]||''} ${s.cat}</span>
+          <span class="supply-name">${s.name}</span>
+        </div>
+        <div class="supply-sub">
+          📅 ${s.date}
+          ${s.store ? ' · 🏪 '+s.store : ''}
+          ${s.qty   ? ' · 📦 '+s.qty+' '+s.unit : ''}
+        </div>
+        ${s.unitPrice ? `<div class="supply-sub" style="margin-top:2px;">💰 개당 단가: ${s.unitPrice.toLocaleString()}원</div>` : ''}
+        ${s.memo ? `<div class="supply-sub" style="margin-top:2px;">📌 ${s.memo}</div>` : ''}
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0;">
+        ${s.price ? `<div class="supply-price">${s.price.toLocaleString()}원</div>` : ''}
+        <button class="btn-del" onclick="delSupply(${s.id})">삭제</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+</script>
+</html>
