@@ -385,6 +385,38 @@ textarea { resize: vertical; min-height: 90px; line-height: 1.6; }
 .supply-name  { font-size:15px; font-weight:700; color:var(--text); }
 .supply-sub   { font-size:12px; color:var(--text-hint); margin-top:3px; }
 .supply-price { font-size:15px; font-weight:700; color:var(--green-dark); white-space:nowrap; }
+
+/* 날짜 상세 모달 */
+.day-modal-bg {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.5); z-index: 500;
+  align-items: flex-end;
+}
+.day-modal-bg.open { display: flex; }
+.day-modal {
+  background: var(--surface);
+  border-radius: 20px 20px 0 0;
+  width: 100%; max-height: 80vh;
+  overflow-y: auto;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.day-modal-header {
+  display: flex; align-items: center;
+  justify-content: space-between;
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid var(--border);
+  position: sticky; top: 0;
+  background: var(--surface); z-index: 1;
+}
+.day-modal-title { font-size: 16px; font-weight: 700; }
+.day-modal-close {
+  background: var(--bg); border: none;
+  width: 32px; height: 32px; border-radius: 50%;
+  font-size: 15px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.day-modal-body { padding: 8px 16px 16px; }
+.day-modal-empty { text-align:center; color:var(--text-hint); padding:30px 0; font-size:14px; }
 </style>
 </head>
 <body>
@@ -427,6 +459,9 @@ textarea { resize: vertical; min-height: 90px; line-height: 1.6; }
 <!-- 일지 쓰기 -->
 <section class="section active" id="sec-write">
   <div class="card">
+    <div id="edit-banner" style="display:none;background:var(--amber-pale);color:var(--amber);border-radius:var(--radius-sm);padding:10px 14px;margin-bottom:14px;font-size:13px;font-weight:700;">
+      ✏️ 수정 모드 — <span id="edit-banner-date"></span>
+    </div>
     <div class="field-label">날짜</div>
     <input type="date" id="entry-date" />
 
@@ -550,6 +585,17 @@ textarea { resize: vertical; min-height: 90px; line-height: 1.6; }
   <div class="card" id="supply-list"></div>
 </section>
 
+<!-- 날짜 상세 모달 -->
+<div class="day-modal-bg" id="day-modal" onclick="closeDayModalBg(event)">
+  <div class="day-modal">
+    <div class="day-modal-header">
+      <span class="day-modal-title" id="day-modal-title"></span>
+      <button class="day-modal-close" onclick="closeDayModal()">✕</button>
+    </div>
+    <div class="day-modal-body" id="day-modal-body"></div>
+  </div>
+</div>
+
 <!-- 사진 전체보기 모달 -->
 <div class="photo-modal-bg" id="photo-modal" onclick="closeModal(event)">
   <button class="photo-modal-close" onclick="closePhotoModal()">✕</button>
@@ -644,6 +690,7 @@ let selWorks = [];
 let selPhotos = []; // base64 배열
 let calYear, calMonth;
 let modalPhotos = [], modalIdx = 0;
+let editId = null;
 
 function load() {
   try { entries = JSON.parse(localStorage.getItem(ENTRY_KEY)) || []; } catch(e){ entries=[]; }
@@ -711,21 +758,28 @@ function saveEntry() {
   const content = document.getElementById('entry-content').value.trim();
   if(!date) { alert('날짜를 선택해주세요.'); return; }
   if(!content && selWorks.length===0 && selPhotos.length===0) { alert('내용을 입력하거나 작업/사진을 추가해주세요.'); return; }
-  entries.unshift({
-    id: Date.now(), date,
-    weather: selWeather,
-    crops: [...selCrops],
-    works: [...selWorks],
-    content,
-    memo: document.getElementById('entry-memo').value.trim(),
+  const data = {
+    date, weather: selWeather,
+    crops: [...selCrops], works: [...selWorks],
+    content, memo: document.getElementById('entry-memo').value.trim(),
     photos: [...selPhotos]
-  });
-  save();
-  clearForm();
-  alert('저장되었습니다! ✅');
+  };
+  if (editId) {
+    const idx = entries.findIndex(e => e.id === editId);
+    if (idx !== -1) entries[idx] = { id: editId, ...data };
+    save(); clearForm();
+    alert('수정되었습니다! ✅');
+  } else {
+    entries.unshift({ id: Date.now(), ...data });
+    save(); clearForm();
+    alert('저장되었습니다! ✅');
+  }
 }
 
 function clearForm() {
+  editId = null;
+  document.getElementById('edit-banner').style.display = 'none';
+  document.querySelector('#sec-write .btn-save').textContent = '저장하기';
   document.getElementById('entry-date').value = toDateStr(new Date());
   document.getElementById('entry-content').value = '';
   document.getElementById('entry-memo').value = '';
@@ -743,7 +797,47 @@ function clearForm() {
 function delEntry(id) {
   if(!confirm('이 기록을 삭제할까요?')) return;
   entries = entries.filter(e=>e.id!==id);
-  save(); renderList();
+  save();
+  closeDayModal();
+  renderList();
+  renderCalendar();
+}
+
+function editEntry(id) {
+  const e = entries.find(x => x.id === id);
+  if (!e) return;
+  closeDayModal();
+  // 쓰기 탭으로 이동
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('sec-write').classList.add('active');
+  document.querySelector('.nav-btn').classList.add('active');
+  // 수정 모드 표시
+  editId = e.id;
+  document.getElementById('edit-banner').style.display = 'block';
+  document.getElementById('edit-banner-date').textContent = e.date;
+  document.querySelector('#sec-write .btn-save').textContent = '수정 완료';
+  // 폼 채우기
+  document.getElementById('entry-date').value = e.date;
+  document.getElementById('entry-content').value = e.content || '';
+  document.getElementById('entry-memo').value = e.memo || '';
+  // 날씨
+  selWeather = e.weather;
+  document.querySelectorAll('#weather-chips .chip').forEach(b =>
+    b.classList.toggle('sel-weather', b.dataset.w === e.weather)
+  );
+  // 작물
+  selCrops = [...e.crops];
+  renderCropChips();
+  // 작업
+  selWorks = [...e.works];
+  document.querySelectorAll('#work-chips .chip').forEach(b =>
+    b.classList.toggle('sel-work', e.works.includes(b.textContent))
+  );
+  // 사진
+  selPhotos = [...(e.photos || [])];
+  renderPhotoPreview();
+  window.scrollTo(0, 0);
 }
 
 const wico = {맑음:'☀️',흐림:'☁️',비:'🌧️',눈:'❄️',바람:'💨'};
@@ -770,7 +864,10 @@ function entryHTML(e, showDel=true) {
       ${e.memo?`<div class="entry-memo">📌 ${e.memo}</div>`:''}
       ${photoHTML}
     </div>
-    ${showDel?`<button class="btn-del" onclick="delEntry(${e.id})">삭제</button>`:''}
+    ${showDel?`<div style="display:flex;flex-direction:column;gap:5px;flex-shrink:0;">
+      <button class="btn-del" style="border-color:#b3d4b3;color:var(--green);" onclick="editEntry(${e.id})">수정</button>
+      <button class="btn-del" onclick="delEntry(${e.id})">삭제</button>
+    </div>`:''}
   </div>`;
 }
 
@@ -818,10 +915,22 @@ function changeMonth(d){
   renderCalendar();
 }
 function showDay(ds){
-  const dayE = entries.filter(e=>e.date===ds);
-  const det = document.getElementById('cal-detail');
-  if(!dayE.length){ det.innerHTML=`<div class="empty">${ds} 기록 없음</div>`; return; }
-  det.innerHTML=`<div style="font-size:13px;font-weight:700;color:var(--text-sub);margin-bottom:8px;">${ds} 기록</div>`+dayE.map(e=>entryHTML(e,false)).join('');
+  const dayE = entries.filter(e => e.date === ds);
+  const [y, m, d] = ds.split('-');
+  const dayNames = ['일','월','화','수','목','금','토'];
+  const dayName = dayNames[new Date(ds).getDay()];
+  document.getElementById('day-modal-title').textContent =
+    `${y}년 ${parseInt(m)}월 ${parseInt(d)}일 (${dayName})`;
+  document.getElementById('day-modal-body').innerHTML = dayE.length
+    ? dayE.map(e => entryHTML(e, true)).join('')
+    : `<div class="day-modal-empty">📭 이 날 기록이 없습니다</div>`;
+  document.getElementById('day-modal').classList.add('open');
+}
+function closeDayModal() {
+  document.getElementById('day-modal').classList.remove('open');
+}
+function closeDayModalBg(e) {
+  if (e.target === document.getElementById('day-modal')) closeDayModal();
 }
 
 function renderStats(){
