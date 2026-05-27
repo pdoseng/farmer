@@ -490,6 +490,22 @@ textarea { resize: vertical; min-height: 90px; line-height: 1.6; }
       <button class="chip" onclick="toggleWork(this)">기타</button>
     </div>
 
+    <!-- 농약 상세 (병해충 방제 선택 시 표시) -->
+    <div id="pesticide-section" style="display:none;margin-top:12px;padding:14px;background:var(--bg);border-radius:var(--radius-sm);border:1.5px solid #c89de0;">
+      <div style="font-size:13px;font-weight:700;color:#7b2fa0;margin-bottom:12px;">🧪 농약 살포 정보</div>
+      <div class="field-label" style="margin-top:0;">농약명</div>
+      <input type="text" id="pest-name" placeholder="예: 새빛 살균제, 만장일치..." />
+      <div class="field-label">수량</div>
+      <div style="display:flex;gap:8px;">
+        <input type="text" id="pest-qty" placeholder="수량" inputmode="decimal" style="flex:1;" />
+        <select id="pest-unit" style="flex:1;">
+          <option>mL</option><option>L</option><option>g</option><option>kg</option><option>포</option><option>병</option>
+        </select>
+      </div>
+      <div class="field-label">기타사항</div>
+      <input type="text" id="pest-note" placeholder="희석배수, 살포면적, 안전기간 등" />
+    </div>
+
     <div class="field-label">작업 내용</div>
     <div class="voice-wrap">
       <textarea id="entry-content" placeholder="오늘의 농작업 내용을 자유롭게 적어주세요... (🎤 버튼으로 말하기 가능)"></textarea>
@@ -741,6 +757,10 @@ function toggleWork(el) {
   el.classList.toggle('sel-work');
   if(el.classList.contains('sel-work')) { if(!selWorks.includes(w)) selWorks.push(w); }
   else selWorks = selWorks.filter(x=>x!==w);
+  if(w === '병해충 방제') {
+    document.getElementById('pesticide-section').style.display =
+      el.classList.contains('sel-work') ? 'block' : 'none';
+  }
 }
 function toggleCrop(el) {
   const c = el.textContent;
@@ -762,7 +782,13 @@ function saveEntry() {
     date, weather: selWeather,
     crops: [...selCrops], works: [...selWorks],
     content, memo: document.getElementById('entry-memo').value.trim(),
-    photos: [...selPhotos]
+    photos: [...selPhotos],
+    pesticide: selWorks.includes('병해충 방제') ? {
+      name : document.getElementById('pest-name').value.trim(),
+      qty  : document.getElementById('pest-qty').value.trim(),
+      unit : document.getElementById('pest-unit').value,
+      note : document.getElementById('pest-note').value.trim()
+    } : null
   };
   if (editId) {
     const idx = entries.findIndex(e => e.id === editId);
@@ -792,6 +818,11 @@ function clearForm() {
   document.getElementById('photo-preview').innerHTML='';
   document.getElementById('photo-count').textContent='';
   document.getElementById('photo-input').value='';
+  document.getElementById('pest-name').value='';
+  document.getElementById('pest-qty').value='';
+  document.getElementById('pest-unit').value='mL';
+  document.getElementById('pest-note').value='';
+  document.getElementById('pesticide-section').style.display='none';
 }
 
 function delEntry(id) {
@@ -837,6 +868,16 @@ function editEntry(id) {
   // 사진
   selPhotos = [...(e.photos || [])];
   renderPhotoPreview();
+  // 농약 정보
+  if (e.pesticide && e.works.includes('병해충 방제')) {
+    document.getElementById('pesticide-section').style.display = 'block';
+    document.getElementById('pest-name').value = e.pesticide.name || '';
+    document.getElementById('pest-qty').value  = e.pesticide.qty  || '';
+    document.getElementById('pest-unit').value = e.pesticide.unit || 'mL';
+    document.getElementById('pest-note').value = e.pesticide.note || '';
+  } else {
+    document.getElementById('pesticide-section').style.display = 'none';
+  }
   window.scrollTo(0, 0);
 }
 
@@ -861,6 +902,7 @@ function entryHTML(e, showDel=true) {
         ${e.works.map(w=>`<span class="tag-sm tag-work">${w}</span>`).join('')}
       </div>
       ${e.content?`<div class="entry-content">${e.content}</div>`:''}
+      ${e.pesticide&&(e.pesticide.name||e.pesticide.qty||e.pesticide.note)?`<div class="entry-memo" style="color:#7b2fa0;">🧪 ${[e.pesticide.name, e.pesticide.qty&&e.pesticide.unit?e.pesticide.qty+e.pesticide.unit:'', e.pesticide.note].filter(Boolean).join(' · ')}</div>`:''}
       ${e.memo?`<div class="entry-memo">📌 ${e.memo}</div>`:''}
       ${photoHTML}
     </div>
