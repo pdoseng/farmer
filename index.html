@@ -492,18 +492,11 @@ textarea { resize: vertical; min-height: 90px; line-height: 1.6; }
 
     <!-- 농약 상세 (병해충 방제 선택 시 표시) -->
     <div id="pesticide-section" style="display:none;margin-top:12px;padding:14px;background:var(--bg);border-radius:var(--radius-sm);border:1.5px solid #c89de0;">
-      <div style="font-size:13px;font-weight:700;color:#7b2fa0;margin-bottom:12px;">🧪 농약 살포 정보</div>
-      <div class="field-label" style="margin-top:0;">농약명</div>
-      <input type="text" id="pest-name" placeholder="예: 새빛 살균제, 만장일치..." />
-      <div class="field-label">수량</div>
-      <div style="display:flex;gap:8px;">
-        <input type="text" id="pest-qty" placeholder="수량" inputmode="decimal" style="flex:1;" />
-        <select id="pest-unit" style="flex:1;">
-          <option>mL</option><option>L</option><option>g</option><option>kg</option><option>포</option><option>병</option>
-        </select>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <div style="font-size:13px;font-weight:700;color:#7b2fa0;">🧪 농약 살포 정보</div>
+        <button onclick="addPesticide()" style="padding:6px 14px;background:#7b2fa0;color:#fff;border:none;border-radius:var(--radius-sm);font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">+ 농약 추가</button>
       </div>
-      <div class="field-label">기타사항</div>
-      <input type="text" id="pest-note" placeholder="희석배수, 살포면적, 안전기간 등" />
+      <div id="pesticide-list"></div>
     </div>
 
     <div class="field-label">작업 내용</div>
@@ -707,6 +700,7 @@ let selPhotos = []; // base64 배열
 let calYear, calMonth;
 let modalPhotos = [], modalIdx = 0;
 let editId = null;
+let selPesticides = [];
 
 function load() {
   try { entries = JSON.parse(localStorage.getItem(ENTRY_KEY)) || []; } catch(e){ entries=[]; }
@@ -758,8 +752,10 @@ function toggleWork(el) {
   if(el.classList.contains('sel-work')) { if(!selWorks.includes(w)) selWorks.push(w); }
   else selWorks = selWorks.filter(x=>x!==w);
   if(w === '병해충 방제') {
-    document.getElementById('pesticide-section').style.display =
-      el.classList.contains('sel-work') ? 'block' : 'none';
+    const on = el.classList.contains('sel-work');
+    document.getElementById('pesticide-section').style.display = on ? 'block' : 'none';
+    if(on && selPesticides.length === 0) addPesticide();
+    if(!on) { selPesticides = []; renderPesticideList(); }
   }
 }
 function toggleCrop(el) {
@@ -783,12 +779,7 @@ function saveEntry() {
     crops: [...selCrops], works: [...selWorks],
     content, memo: document.getElementById('entry-memo').value.trim(),
     photos: [...selPhotos],
-    pesticide: selWorks.includes('병해충 방제') ? {
-      name : document.getElementById('pest-name').value.trim(),
-      qty  : document.getElementById('pest-qty').value.trim(),
-      unit : document.getElementById('pest-unit').value,
-      note : document.getElementById('pest-note').value.trim()
-    } : null
+    pesticides: selWorks.includes('병해충 방제') ? selPesticides.filter(p=>p.name||p.qty||p.note).map(p=>({...p})) : []
   };
   if (editId) {
     const idx = entries.findIndex(e => e.id === editId);
@@ -818,11 +809,40 @@ function clearForm() {
   document.getElementById('photo-preview').innerHTML='';
   document.getElementById('photo-count').textContent='';
   document.getElementById('photo-input').value='';
-  document.getElementById('pest-name').value='';
-  document.getElementById('pest-qty').value='';
-  document.getElementById('pest-unit').value='mL';
-  document.getElementById('pest-note').value='';
+  selPesticides = [];
+  renderPesticideList();
   document.getElementById('pesticide-section').style.display='none';
+}
+
+function addPesticide() {
+  selPesticides.push({ name:'', qty:'', unit:'mL', note:'' });
+  renderPesticideList();
+}
+function removePesticide(idx) {
+  selPesticides.splice(idx, 1);
+  renderPesticideList();
+}
+function renderPesticideList() {
+  const units = ['mL','L','g','kg','포','병'];
+  document.getElementById('pesticide-list').innerHTML = selPesticides.map((p,i) => `
+    <div style="background:var(--surface);border-radius:var(--radius-sm);padding:12px;margin-bottom:8px;border:1px solid #c89de0;position:relative;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <span style="font-size:12px;font-weight:700;color:#7b2fa0;">농약 ${i+1}</span>
+        <button onclick="removePesticide(${i})" style="background:none;border:none;color:#c0392b;font-size:16px;cursor:pointer;padding:0 4px;line-height:1;">✕</button>
+      </div>
+      <div class="field-label" style="margin-top:0;">농약명</div>
+      <input type="text" value="${p.name||''}" oninput="selPesticides[${i}].name=this.value" placeholder="예: 새빛 살균제, 만장일치..." />
+      <div class="field-label">수량</div>
+      <div style="display:flex;gap:8px;">
+        <input type="text" value="${p.qty||''}" oninput="selPesticides[${i}].qty=this.value" placeholder="수량" inputmode="decimal" style="flex:1;" />
+        <select onchange="selPesticides[${i}].unit=this.value" style="flex:1;">
+          ${units.map(u=>`<option${(p.unit||'mL')===u?' selected':''}>${u}</option>`).join('')}
+        </select>
+      </div>
+      <div class="field-label">기타사항</div>
+      <input type="text" value="${p.note||''}" oninput="selPesticides[${i}].note=this.value" placeholder="희석배수, 살포면적, 안전기간 등" />
+    </div>
+  `).join('') + (selPesticides.length === 0 ? '<div style="text-align:center;color:var(--text-hint);font-size:13px;padding:12px 0;">위 "+ 농약 추가" 버튼을 눌러 추가하세요</div>' : '');
 }
 
 function delEntry(id) {
@@ -868,14 +888,20 @@ function editEntry(id) {
   // 사진
   selPhotos = [...(e.photos || [])];
   renderPhotoPreview();
-  // 농약 정보
-  if (e.pesticide && e.works.includes('병해충 방제')) {
+  // 농약 정보 (복수 지원, 이전 단일 형식도 호환)
+  if (e.works.includes('병해충 방제')) {
+    if (e.pesticides && e.pesticides.length) {
+      selPesticides = e.pesticides.map(p => ({...p}));
+    } else if (e.pesticide) {
+      selPesticides = [{...e.pesticide}];
+    } else {
+      selPesticides = [{ name:'', qty:'', unit:'mL', note:'' }];
+    }
+    renderPesticideList();
     document.getElementById('pesticide-section').style.display = 'block';
-    document.getElementById('pest-name').value = e.pesticide.name || '';
-    document.getElementById('pest-qty').value  = e.pesticide.qty  || '';
-    document.getElementById('pest-unit').value = e.pesticide.unit || 'mL';
-    document.getElementById('pest-note').value = e.pesticide.note || '';
   } else {
+    selPesticides = [];
+    renderPesticideList();
     document.getElementById('pesticide-section').style.display = 'none';
   }
   window.scrollTo(0, 0);
@@ -902,7 +928,7 @@ function entryHTML(e, showDel=true) {
         ${e.works.map(w=>`<span class="tag-sm tag-work">${w}</span>`).join('')}
       </div>
       ${e.content?`<div class="entry-content">${e.content}</div>`:''}
-      ${e.pesticide&&(e.pesticide.name||e.pesticide.qty||e.pesticide.note)?`<div class="entry-memo" style="color:#7b2fa0;">🧪 ${[e.pesticide.name, e.pesticide.qty&&e.pesticide.unit?e.pesticide.qty+e.pesticide.unit:'', e.pesticide.note].filter(Boolean).join(' · ')}</div>`:''}
+      ${(e.pesticides&&e.pesticides.length?e.pesticides:(e.pesticide?[e.pesticide]:[])).filter(p=>p.name||p.qty||p.note).map(p=>`<div class="entry-memo" style="color:#7b2fa0;">🧪 ${[p.name,p.qty&&p.unit?p.qty+p.unit:'',p.note].filter(Boolean).join(' · ')}</div>`).join('')}
       ${e.memo?`<div class="entry-memo">📌 ${e.memo}</div>`:''}
       ${photoHTML}
     </div>
