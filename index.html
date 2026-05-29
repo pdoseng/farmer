@@ -1196,16 +1196,8 @@ function renderBackupStats() {
 
 let recognition = null;
 let currentVoiceTarget = null;
-
-function initVoice() {
-  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SpeechRecognition) return null;
-  const r = new SpeechRecognition();
-  r.lang = 'ko-KR';
-  r.continuous = true;
-  r.interimResults = true;
-  return r;
-}
+// 타겟별 누적 텍스트 (재시작 시에도 유지)
+const voiceState = { content: null, memo: null };
 
 function toggleVoice(target) {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -1213,7 +1205,6 @@ function toggleVoice(target) {
     alert('이 브라우저는 음성 입력을 지원하지 않습니다.\n크롬(Chrome) 브라우저를 사용해 주세요.');
     return;
   }
-  // 다른 타겟 녹음 중이면 먼저 중지
   if (recognition && currentVoiceTarget && currentVoiceTarget !== target) {
     stopVoice(currentVoiceTarget);
   }
@@ -1226,17 +1217,23 @@ function toggleVoice(target) {
 }
 
 function startVoice(target) {
-  recognition = initVoice();
-  if (!recognition) return;
-  currentVoiceTarget = target;
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) return;
 
   const micBtn   = document.getElementById('mic-' + target);
   const statusEl = document.getElementById('voice-status-' + target);
   const inputEl  = document.getElementById('entry-' + (target === 'content' ? 'content' : 'memo'));
-  const baseText = inputEl.value; // 녹음 시작 전 기존 텍스트 (고정)
-  let accumulated  = '';          // 이번 세션 인식 텍스트
-  let isRestarting = false;       // 중복 재시작 방지
-  let lastFinal    = '';          // 직전 인식 텍스트 (재시작 후 중복 방지)
+
+  // 첫 시작이면 현재 입력값을 base로 저장, 재시작이면 기존 상태 유지
+  if (voiceState[target] === null) {
+    voiceState[target] = inputEl.value;
+  }
+
+  recognition = new SpeechRecognition();
+  recognition.lang = 'ko-KR';
+  recognition.continuous = false;   // Android 중복 방지: 발화마다 독립 세션
+  recognition.interimResults = true;
+  currentVoiceTarget = target;
 
   micBtn.classList.add('listening');
   micBtn.textContent = '⏹';
@@ -1252,11 +1249,10 @@ function startVoice(target) {
     }
     if (finalChunk) {
       const trimmed = finalChunk.trim();
-      // 직전 인식 텍스트와 동일하면 Android 재발화 버그 → 무시
-      if (trimmed && trimmed !== lastFinal) {
-        lastFinal = trimmed;
-        accumulated += (accumulated ? ' ' : '') + trimmed;
-        inputEl.value = baseText + (baseText && accumulated ? ' ' : '') + accumulated;
+      if (trimmed) {
+        const prev = voiceState[target];
+        voiceState[target] = prev + (prev ? ' ' : '') + trimmed;
+        inputEl.value = voiceState[target];
       }
     }
     if (interimText) statusEl.textContent = '🔴 ' + interimText + '...';
@@ -1269,13 +1265,11 @@ function startVoice(target) {
   };
 
   recognition.onend = () => {
-    if (!micBtn.classList.contains('listening') || isRestarting) return;
-    isRestarting = true;
+    if (!micBtn.classList.contains('listening')) return;
+    // 새 독립 세션으로 재시작 (이전 결과 없음)
     setTimeout(() => {
-      isRestarting = false;
-      lastFinal = ''; // 재시작 후 초기화 (같은 말 다시 할 수 있도록)
-      if (micBtn.classList.contains('listening')) recognition.start();
-    }, 500); // 500ms 대기 (300ms보다 안정적)
+      if (micBtn.classList.contains('listening')) startVoice(target);
+    }, 300);
   };
 
   recognition.start();
@@ -1284,6 +1278,7 @@ function startVoice(target) {
 function stopVoice(target) {
   if (recognition) { recognition.onend = null; recognition.stop(); recognition = null; }
   currentVoiceTarget = null;
+  voiceState[target] = null; // 다음 녹음을 위해 초기화
   const micBtn   = document.getElementById('mic-' + target);
   const statusEl = document.getElementById('voice-status-' + target);
   micBtn.classList.remove('listening');
