@@ -386,6 +386,33 @@ textarea { resize: vertical; min-height: 90px; line-height: 1.6; }
 .supply-sub   { font-size:12px; color:var(--text-hint); margin-top:3px; }
 .supply-price { font-size:15px; font-weight:700; color:var(--green-dark); white-space:nowrap; }
 
+/* 자재 사진 업로드 */
+.sup-photo-label {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 16px; border-radius: 8px;
+  background: var(--green-pale); color: var(--green-dark);
+  border: 1.5px dashed var(--green); font-size: 14px; font-weight: 600;
+  cursor: pointer; margin-top: 4px;
+}
+.sup-photo-preview-wrap {
+  display: flex; align-items: center; gap: 10px; margin-top: 8px;
+}
+.sup-photo-thumb-form {
+  width: 80px; height: 80px; border-radius: 10px;
+  object-fit: cover; border: 1.5px solid var(--border); cursor: pointer;
+}
+.sup-photo-remove {
+  background: #e74c3c; color: #fff; border: none;
+  border-radius: 50%; width: 26px; height: 26px;
+  font-size: 14px; cursor: pointer; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+.supply-thumb {
+  width: 56px; height: 56px; border-radius: 8px;
+  object-fit: cover; border: 1px solid var(--border);
+  cursor: pointer; flex-shrink: 0; margin-top: 2px;
+}
+
 /* 날짜 상세 모달 */
 .day-modal-bg {
   display: none; position: fixed; inset: 0;
@@ -572,6 +599,15 @@ textarea { resize: vertical; min-height: 90px; line-height: 1.6; }
 
     <div class="field-label">메모</div>
     <input type="text" id="sup-memo" placeholder="용도, 희석배수, 안전기간 등" />
+
+    <div class="field-label">영수증 / 사진</div>
+    <label class="sup-photo-label" for="sup-photo-input">📷 사진 추가</label>
+    <input type="file" id="sup-photo-input" accept="image/*" capture="environment" style="display:none;" onchange="previewSupPhoto(this)" />
+    <div class="sup-photo-preview-wrap" id="sup-photo-preview" style="display:none;">
+      <img id="sup-photo-img" class="sup-photo-thumb-form" src="" alt="사진미리보기" onclick="openSupPhotoPreview()" />
+      <button class="sup-photo-remove" onclick="removeSupPhoto()" title="사진 삭제">✕</button>
+      <span style="font-size:12px;color:var(--text-hint);">클릭하면 크게 보기</span>
+    </div>
 
     <button class="btn-save" onclick="saveSupply()">저장하기</button>
     <button class="btn-clear" onclick="clearSupplyForm()">초기화</button>
@@ -1289,6 +1325,41 @@ function stopVoice(target) {
 }
 // ---- 농자재 구매 기록 ----
 const supCatIcon = {'농약':'🧪','비료':'🌱','농자재':'🔧','종자/모종':'🌾','기타':'📦'};
+let supPhotoData = null; // base64 or null
+
+function previewSupPhoto(input) {
+  if (!input.files || !input.files[0]) return;
+  const file = input.files[0];
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    supPhotoData = e.target.result;
+    document.getElementById('sup-photo-img').src = supPhotoData;
+    document.getElementById('sup-photo-preview').style.display = 'flex';
+  };
+  reader.readAsDataURL(file);
+}
+
+function removeSupPhoto() {
+  supPhotoData = null;
+  document.getElementById('sup-photo-input').value = '';
+  document.getElementById('sup-photo-img').src = '';
+  document.getElementById('sup-photo-preview').style.display = 'none';
+}
+
+function openSupPhotoPreview() {
+  if (!supPhotoData) return;
+  modalPhotos = [supPhotoData]; modalIdx = 0;
+  updateModal();
+  document.getElementById('photo-modal').classList.add('open');
+}
+
+function openSupplyPhotoModal(supId) {
+  const s = supplies.find(x => x.id === supId);
+  if (!s || !s.photo) return;
+  modalPhotos = [s.photo]; modalIdx = 0;
+  updateModal();
+  document.getElementById('photo-modal').classList.add('open');
+}
 
 function pickSupCat(el) {
   document.querySelectorAll('.sup-cat-chip').forEach(b => b.classList.remove('sel-supcat'));
@@ -1309,7 +1380,7 @@ function saveSupply() {
   if (!name) { alert('품목명을 입력해주세요.'); return; }
   const price     = priceRaw     ? parseInt(priceRaw, 10)     : null;
   const unitPrice = unitPriceRaw ? parseInt(unitPriceRaw, 10) : null;
-  supplies.unshift({ id: Date.now(), date, cat: selSupCat, name, store, qty, unit, price, unitPrice, memo });
+  supplies.unshift({ id: Date.now(), date, cat: selSupCat, name, store, qty, unit, price, unitPrice, memo, photo: supPhotoData });
   save();
   clearSupplyForm();
   alert('저장되었습니다! ✅');
@@ -1328,6 +1399,7 @@ function clearSupplyForm() {
   selSupCat = '농약';
   document.querySelectorAll('.sup-cat-chip').forEach(b => b.classList.remove('sel-supcat'));
   document.querySelector('[data-cat="농약"]').classList.add('sel-supcat');
+  removeSupPhoto();
 }
 
 function calcUnitPrice() {
@@ -1391,6 +1463,7 @@ function renderSupplyList() {
         ${s.memo ? `<div class="supply-sub" style="margin-top:2px;">📌 ${s.memo}</div>` : ''}
       </div>
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0;">
+        ${s.photo ? `<img class="supply-thumb" src="${s.photo}" alt="영수증" onclick="openSupplyPhotoModal(${s.id})" />` : ''}
         ${s.price ? `<div class="supply-price">${s.price.toLocaleString()}원</div>` : ''}
         <button class="btn-del" onclick="delSupply(${s.id})">삭제</button>
       </div>
