@@ -601,8 +601,12 @@ textarea { resize: vertical; min-height: 90px; line-height: 1.6; }
     <input type="text" id="sup-memo" placeholder="용도, 희석배수, 안전기간 등" />
 
     <div class="field-label">영수증 / 사진</div>
-    <label class="sup-photo-label" for="sup-photo-input">📷 사진 추가</label>
-    <input type="file" id="sup-photo-input" accept="image/*" capture="environment" style="display:none;" onchange="previewSupPhoto(this)" />
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <label class="sup-photo-label" for="sup-photo-camera">📷 카메라 촬영</label>
+      <label class="sup-photo-label" for="sup-photo-gallery" style="background:var(--amber-pale);color:#7a4800;border-color:var(--amber);">🖼 갤러리 선택</label>
+    </div>
+    <input type="file" id="sup-photo-camera"  accept="image/*" capture="environment" style="display:none;" onchange="previewSupPhoto(this)" />
+    <input type="file" id="sup-photo-gallery" accept="image/*"                        style="display:none;" onchange="previewSupPhoto(this)" />
     <div class="sup-photo-preview-wrap" id="sup-photo-preview" style="display:none;">
       <img id="sup-photo-img" class="sup-photo-thumb-form" src="" alt="사진미리보기" onclick="openSupPhotoPreview()" />
       <button class="sup-photo-remove" onclick="removeSupPhoto()" title="사진 삭제">✕</button>
@@ -1341,7 +1345,8 @@ function previewSupPhoto(input) {
 
 function removeSupPhoto() {
   supPhotoData = null;
-  document.getElementById('sup-photo-input').value = '';
+  document.getElementById('sup-photo-camera').value = '';
+  document.getElementById('sup-photo-gallery').value = '';
   document.getElementById('sup-photo-img').src = '';
   document.getElementById('sup-photo-preview').style.display = 'none';
 }
