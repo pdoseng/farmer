@@ -1234,8 +1234,9 @@ function startVoice(target) {
   const statusEl = document.getElementById('voice-status-' + target);
   const inputEl  = document.getElementById('entry-' + (target === 'content' ? 'content' : 'memo'));
   const baseText = inputEl.value; // 녹음 시작 전 기존 텍스트 (고정)
-  let accumulated = '';           // 이번 세션 인식 텍스트 (별도 관리)
-  let isRestarting = false;       // 중복 재시작 방지 플래그
+  let accumulated  = '';          // 이번 세션 인식 텍스트
+  let isRestarting = false;       // 중복 재시작 방지
+  let lastFinal    = '';          // 직전 인식 텍스트 (재시작 후 중복 방지)
 
   micBtn.classList.add('listening');
   micBtn.textContent = '⏹';
@@ -1250,8 +1251,13 @@ function startVoice(target) {
       else interimText += e.results[i][0].transcript;
     }
     if (finalChunk) {
-      accumulated += (accumulated ? ' ' : '') + finalChunk.trim();
-      inputEl.value = baseText + (baseText && accumulated ? ' ' : '') + accumulated;
+      const trimmed = finalChunk.trim();
+      // 직전 인식 텍스트와 동일하면 Android 재발화 버그 → 무시
+      if (trimmed && trimmed !== lastFinal) {
+        lastFinal = trimmed;
+        accumulated += (accumulated ? ' ' : '') + trimmed;
+        inputEl.value = baseText + (baseText && accumulated ? ' ' : '') + accumulated;
+      }
     }
     if (interimText) statusEl.textContent = '🔴 ' + interimText + '...';
   };
@@ -1267,8 +1273,9 @@ function startVoice(target) {
     isRestarting = true;
     setTimeout(() => {
       isRestarting = false;
+      lastFinal = ''; // 재시작 후 초기화 (같은 말 다시 할 수 있도록)
       if (micBtn.classList.contains('listening')) recognition.start();
-    }, 300); // 300ms 후 재시작 (안드로이드 중복 방지)
+    }, 500); // 500ms 대기 (300ms보다 안정적)
   };
 
   recognition.start();
