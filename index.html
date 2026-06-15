@@ -54,6 +54,7 @@ body {
 .header-top { display: flex; align-items: center; justify-content: space-between; }
 .header h1 { font-size: 20px; font-weight: 700; letter-spacing: -0.3px; }
 .header-date { font-size: 12px; opacity: 0.8; margin-top: 2px; }
+.header-autosave { font-size: 11px; opacity: 0.7; margin-top: 1px; }
 .header-icon { font-size: 24px; }
 
 /* Bottom Nav */
@@ -463,6 +464,7 @@ textarea { resize: vertical; min-height: 90px; line-height: 1.6; }
     <div>
       <h1>🌱 도성네농사일기 <span style="font-size:12px;font-weight:400;opacity:0.7;letter-spacing:0;">2026.06.15</span></h1>
       <div class="header-date" id="today-date"></div>
+      <div class="header-autosave" id="autosave-status"></div>
     </div>
     <div class="header-icon">🌾</div>
   </div>
@@ -743,6 +745,8 @@ textarea { resize: vertical; min-height: 90px; line-height: 1.6; }
 const ENTRY_KEY  = 'fj_entries_v1';
 const CROP_KEY   = 'fj_crops_v1';
 const SUPPLY_KEY = 'fj_supply_v1';
+const BACKUP_KEY = 'fj_autobackups'; // 최신 3개 스냅샷
+const MAX_BACKUPS = 3;
 
 let entries = [];
 let crops   = ['인삼','고추','더덕','옥수수','벼','배추','감자','콩','상추','토마토'];
@@ -758,14 +762,78 @@ let editId = null;
 let selPesticides = [];
 
 function load() {
-  try { entries = JSON.parse(localStorage.getItem(ENTRY_KEY)) || []; } catch(e){ entries=[]; }
-  try { const c = JSON.parse(localStorage.getItem(CROP_KEY)); if(c) crops=c; } catch(e){}
+  try { entries  = JSON.parse(localStorage.getItem(ENTRY_KEY))  || []; } catch(e){ entries=[]; }
+  try { const c  = JSON.parse(localStorage.getItem(CROP_KEY));  if(c) crops=c; } catch(e){}
   try { supplies = JSON.parse(localStorage.getItem(SUPPLY_KEY)) || []; } catch(e){ supplies=[]; }
+
+  // 메인 데이터가 비어있으면 자동 백업에서 복원
+  if (entries.length === 0 && supplies.length === 0) {
+    autoRestoreFromBackup();
+  } else {
+    showLatestBackupStatus();
+  }
 }
+
 function save() {
   localStorage.setItem(ENTRY_KEY,  JSON.stringify(entries));
   localStorage.setItem(CROP_KEY,   JSON.stringify(crops));
   localStorage.setItem(SUPPLY_KEY, JSON.stringify(supplies));
+  saveAutoBackup();
+}
+
+function saveAutoBackup() {
+  // 사진(base64)은 용량이 크므로 제외하고 메타데이터만 백업
+  const snapshot = {
+    ts: new Date().toISOString(),
+    entries:  entries.map(e  => { const {photos, ...rest} = e;  return rest; }),
+    crops,
+    supplies: supplies.map(s => { const {photo,  ...rest} = s;  return rest; })
+  };
+  let backups = [];
+  try { backups = JSON.parse(localStorage.getItem(BACKUP_KEY)) || []; } catch(e) {}
+  backups.unshift(snapshot);
+  if (backups.length > MAX_BACKUPS) backups.length = MAX_BACKUPS;
+  try {
+    localStorage.setItem(BACKUP_KEY, JSON.stringify(backups));
+    updateAutosaveStatus(snapshot.ts);
+  } catch(e) { console.warn('자동 백업 실패:', e); }
+}
+
+function autoRestoreFromBackup() {
+  try {
+    const backups = JSON.parse(localStorage.getItem(BACKUP_KEY)) || [];
+    if (backups.length === 0) return;
+    const latest = backups[0];
+    if (!latest.entries || latest.entries.length === 0) return;
+    entries  = latest.entries;
+    crops    = latest.crops || crops;
+    supplies = latest.supplies || [];
+    // 복원한 데이터를 메인 키에 다시 저장
+    localStorage.setItem(ENTRY_KEY,  JSON.stringify(entries));
+    localStorage.setItem(CROP_KEY,   JSON.stringify(crops));
+    localStorage.setItem(SUPPLY_KEY, JSON.stringify(supplies));
+    const d = new Date(latest.ts);
+    alert(`📂 자동 복원 완료!\n저장 시각: ${d.toLocaleString('ko-KR')}\n일지 ${entries.length}건, 자재 ${supplies.length}건`);
+    updateAutosaveStatus(latest.ts);
+  } catch(e) { console.warn('자동 복원 실패:', e); }
+}
+
+function showLatestBackupStatus() {
+  try {
+    const backups = JSON.parse(localStorage.getItem(BACKUP_KEY)) || [];
+    if (backups.length > 0) updateAutosaveStatus(backups[0].ts);
+  } catch(e) {}
+}
+
+function updateAutosaveStatus(isoTs) {
+  const el = document.getElementById('autosave-status');
+  if (!el) return;
+  const d = new Date(isoTs);
+  const mm = String(d.getMonth()+1).padStart(2,'0');
+  const dd = String(d.getDate()).padStart(2,'0');
+  const hh = String(d.getHours()).padStart(2,'0');
+  const mi = String(d.getMinutes()).padStart(2,'0');
+  el.textContent = `💾 자동저장: ${mm}/${dd} ${hh}:${mi}`;
 }
 
 function init() {
