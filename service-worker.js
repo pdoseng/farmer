@@ -1,4 +1,4 @@
-const CACHE_NAME = 'doseongnae-20260615h';
+const CACHE_NAME = 'doseongnae-20260615i';
 const ASSETS = [
   '/farmer/manifest.json',
   '/farmer/icon-192.png',

@@ -462,7 +462,7 @@ textarea { resize: vertical; min-height: 90px; line-height: 1.6; }
 <div class="header">
   <div class="header-top">
     <div>
-      <h1>🌱 도성네농사일기 <span id="ver-clock" style="font-size:12px;font-weight:400;opacity:0.7;letter-spacing:0;"></span></h1>
+      <h1>🌱 도성네농사일기 <span style="font-size:12px;font-weight:400;opacity:0.7;letter-spacing:0;">2026.06.15 18:00</span></h1>
       <div class="header-date" id="today-date"></div>
       <div class="header-autosave" id="autosave-status"></div>
     </div>
@@ -849,17 +849,6 @@ function showLatestBackupStatus() {
   } catch(e) {}
 }
 
-function updateVerClock() {
-  const el = document.getElementById('ver-clock');
-  if (!el) return;
-  const d  = new Date();
-  const yy = d.getFullYear();
-  const mm = String(d.getMonth()+1).padStart(2,'0');
-  const dd = String(d.getDate()).padStart(2,'0');
-  const hh = String(d.getHours()).padStart(2,'0');
-  const mi = String(d.getMinutes()).padStart(2,'0');
-  el.textContent = `${yy}.${mm}.${dd} ${hh}:${mi}`;
-}
 
 function updateAutosaveStatus(isoTs) {
   const el = document.getElementById('autosave-status');
@@ -880,8 +869,6 @@ function init() {
   document.getElementById('sup-date').value   = toDateStr(now);
   document.getElementById('today-date').textContent =
     now.toLocaleDateString('ko-KR', {year:'numeric',month:'long',day:'numeric',weekday:'long'});
-  updateVerClock();
-  setInterval(updateVerClock, 60000);
   renderCropChips();
 }
 
