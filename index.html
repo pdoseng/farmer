@@ -552,11 +552,11 @@ textarea { resize: vertical; min-height: 90px; line-height: 1.6; }
 
     <div class="field-label">사진 첨부</div>
     <input type="file" id="photo-input" accept="image/*" multiple style="display:none;" onchange="handlePhotos(this)" />
-    <div class="photo-upload-area" onclick="document.getElementById('photo-input').click()">
-      <div class="photo-upload-icon">📷</div>
-      <div class="photo-upload-label">사진을 추가하려면 여기를 누르세요</div>
-      <div class="photo-upload-sub">카메라 촬영 또는 갤러리에서 선택 · 최대 5장</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <button type="button" class="sup-photo-label" onclick="openEntryCamera()">📷 카메라 촬영</button>
+      <label class="sup-photo-label" for="photo-input" style="background:var(--amber-pale);color:#7a4800;border-color:var(--amber);">🖼 갤러리 선택</label>
     </div>
+    <div class="photo-upload-sub" style="margin-top:6px;font-size:12px;color:var(--text-hint);">최대 5장 첨부 가능</div>
     <div class="photo-grid" id="photo-preview"></div>
     <div class="photo-count" id="photo-count"></div>
 
@@ -1104,6 +1104,20 @@ function removeCrop(name){
 load(); init();
 
 // ---- 사진 첨부 ----
+function openEntryCamera() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/*';
+  input.capture = 'environment';
+  input.style.display = 'none';
+  input.onchange = function() {
+    handlePhotos(this);
+    if (document.body.contains(input)) document.body.removeChild(input);
+  };
+  document.body.appendChild(input);
+  input.click();
+}
+
 function handlePhotos(input) {
   const MAX = 5;
   const files = Array.from(input.files);
