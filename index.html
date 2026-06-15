@@ -328,14 +328,9 @@ textarea { resize: vertical; min-height: 90px; line-height: 1.6; }
   background: #2c3e50; color: #fff; padding: 12px 18px;
   border-radius: 12px; box-shadow: 0 4px 16px rgba(0,0,0,0.3);
   z-index: 9999; align-items: center; gap: 12px;
-  font-size: 14px; white-space: nowrap;
+  font-size: 14px; white-space: nowrap; cursor: pointer;
 }
 #update-banner.show { display: flex; }
-#update-banner button {
-  background: var(--green); color: #fff; border: none;
-  padding: 6px 14px; border-radius: 8px; font-size: 13px;
-  font-weight: 700; cursor: pointer;
-}
 
 /* 음성 입력 */
 .voice-wrap { position: relative; }
@@ -660,9 +655,9 @@ textarea { resize: vertical; min-height: 90px; line-height: 1.6; }
 </div>
 
 <!-- 업데이트 알림 배너 -->
-<div id="update-banner">
-  🆕 새 버전이 있습니다!
-  <button onclick="applyUpdate()">지금 새로고침</button>
+<div id="update-banner" onclick="applyUpdate()">
+  🆕 새 버전이 있습니다! &nbsp;<span style="text-decoration:underline;cursor:pointer;">새로고침</span>
+  <span style="margin-left:8px;opacity:0.6;font-size:16px;">✕</span>
 </div>
 
 <!-- 사진 전체보기 모달 -->
