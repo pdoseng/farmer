@@ -322,6 +322,21 @@ textarea { resize: vertical; min-height: 90px; line-height: 1.6; }
 }
 .photo-modal-counter { color: rgba(255,255,255,0.7); font-size: 13px; }
 
+/* 업데이트 배너 */
+#update-banner {
+  display: none; position: fixed; bottom: 72px; left: 50%; transform: translateX(-50%);
+  background: #2c3e50; color: #fff; padding: 12px 18px;
+  border-radius: 12px; box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+  z-index: 9999; align-items: center; gap: 12px;
+  font-size: 14px; white-space: nowrap;
+}
+#update-banner.show { display: flex; }
+#update-banner button {
+  background: var(--green); color: #fff; border: none;
+  padding: 6px 14px; border-radius: 8px; font-size: 13px;
+  font-weight: 700; cursor: pointer;
+}
+
 /* 음성 입력 */
 .voice-wrap { position: relative; }
 .voice-wrap textarea { padding-right: 52px; }
@@ -642,6 +657,12 @@ textarea { resize: vertical; min-height: 90px; line-height: 1.6; }
     </div>
     <div class="day-modal-body" id="day-modal-body"></div>
   </div>
+</div>
+
+<!-- 업데이트 알림 배너 -->
+<div id="update-banner">
+  🆕 새 버전이 있습니다!
+  <button onclick="applyUpdate()">지금 새로고침</button>
 </div>
 
 <!-- 사진 전체보기 모달 -->
@@ -1487,8 +1508,29 @@ function renderSupplyList() {
 <script>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./service-worker.js');
+    navigator.serviceWorker.register('./service-worker.js').then(reg => {
+      reg.addEventListener('updatefound', () => {
+        const newWorker = reg.installing;
+        newWorker.addEventListener('statechange', () => {
+          // 새 SW 설치 완료 → 배너 표시 (skipWaiting은 SW 내부에서 자동 처리)
+          if (newWorker.state === 'installed') {
+            document.getElementById('update-banner').classList.add('show');
+          }
+        });
+      });
+    });
+
+    // 새 SW가 컨트롤러로 교체되는 순간 → 자동 새로고침
+    let refreshing = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (!refreshing) { refreshing = true; window.location.reload(); }
+    });
   });
+}
+
+function applyUpdate() {
+  document.getElementById('update-banner').classList.remove('show');
+  window.location.reload();
 }
 </script>
 </html>
