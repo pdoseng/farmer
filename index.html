@@ -726,7 +726,6 @@ textarea { resize: vertical; min-height: 90px; line-height: 1.6; }
     <div style="font-size:15px;font-weight:700;margin-bottom:4px;">📤 데이터 내보내기 (백업)</div>
     <div style="font-size:13px;color:var(--text-hint);margin-bottom:14px;">모든 기록을 파일로 저장합니다. PC나 핸드폰에 보관하세요.</div>
     <button class="btn-save" onclick="exportData()" style="margin-top:0;">💾 백업 파일 저장하기 (전체)</button>
-    <button class="btn-clear" onclick="autoDownloadBackup(true)" style="margin-top:8px;">📥 오늘 자동백업 지금 다운로드</button>
   </div>
 
   <div class="card">
@@ -748,7 +747,6 @@ const CROP_KEY   = 'fj_crops_v1';
 const SUPPLY_KEY = 'fj_supply_v1';
 const BACKUP_KEY      = 'fj_autobackups';  // 최신 3개 스냅샷
 const MAX_BACKUPS     = 3;
-const LAST_DL_KEY     = 'fj_last_download'; // 마지막 파일 다운로드 날짜
 
 let entries = [];
 let crops   = ['인삼','고추','더덕','옥수수','벼','배추','감자','콩','상추','토마토'];
@@ -784,9 +782,7 @@ function save() {
   autoDownloadBackup();
 }
 
-function autoDownloadBackup(force = false) {
-  const today = new Date().toDateString();
-  if (!force && localStorage.getItem(LAST_DL_KEY) === today) return;
+function autoDownloadBackup() {
   const data = {
     version: 1,
     exportDate: new Date().toISOString(),
@@ -798,15 +794,14 @@ function autoDownloadBackup(force = false) {
   const blob = new Blob([json], { type: 'application/json' });
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
-  const dateStr = new Date().toISOString().slice(0,10).replace(/-/g,'');
+  const ts   = new Date().toISOString().replace(/[:.]/g,'-').slice(0,16);
   a.href = url;
-  a.download = `doseongnae_${dateStr}.json`;
+  a.download = `doseongnae_${ts}.json`;
   a.style.display = 'none';
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
-  localStorage.setItem(LAST_DL_KEY, today);
   updateAutosaveStatus(new Date().toISOString());
 }
 
