@@ -601,7 +601,7 @@ textarea { resize: vertical; min-height: 90px; line-height: 1.6; }
     </div>
 
     <div class="field-label">구매금액 (원)</div>
-    <input type="text" id="sup-price" placeholder="예: 35000" inputmode="numeric" oninput="calcUnitPrice()" />
+    <input type="text" id="sup-price" placeholder="예: 35,000" inputmode="numeric" oninput="fmtPrice(this);calcUnitPrice()" />
 
     <div class="field-label">개당 단가 (원)</div>
     <div style="display:flex;gap:8px;align-items:center;">
@@ -1540,6 +1540,16 @@ function clearSupplyForm() {
   document.querySelectorAll('.sup-cat-chip').forEach(b => b.classList.remove('sel-supcat'));
   document.querySelector('[data-cat="농약"]').classList.add('sel-supcat');
   removeSupPhoto();
+}
+
+function fmtPrice(input) {
+  const pos = input.selectionStart;
+  const before = input.value.length;
+  const num = input.value.replace(/[^0-9]/g, '');
+  input.value = num ? parseInt(num, 10).toLocaleString() : '';
+  // 커서 위치 보정 (쉼표 추가로 인한 길이 변화 반영)
+  const after = input.value.length;
+  input.setSelectionRange(pos + (after - before), pos + (after - before));
 }
 
 function calcUnitPrice() {
