@@ -384,6 +384,24 @@ textarea { resize: vertical; min-height: 90px; line-height: 1.6; }
 .supply-name  { font-size:15px; font-weight:700; color:var(--text); }
 .supply-sub   { font-size:12px; color:var(--text-hint); margin-top:3px; }
 .supply-price { font-size:15px; font-weight:700; color:var(--green-dark); white-space:nowrap; }
+
+/* 엑셀 다운로드 버튼 */
+.btn-excel {
+  padding: 9px 14px;
+  background: #1d6f42;
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+.btn-excel:active { background: #155234; }
 </style>
 </head>
 <body>
@@ -546,6 +564,9 @@ textarea { resize: vertical; min-height: 90px; line-height: 1.6; }
   <!-- 요약 -->
   <div class="stat-grid" id="sup-stat-grid" style="margin-bottom:12px;"></div>
 
+  <div style="text-align:right;margin-bottom:10px;">
+    <button class="btn-excel" onclick="exportCSV('supplies')">📊 엑셀 다운로드</button>
+  </div>
   <div class="card" id="supply-list"></div>
 </section>
 
@@ -565,6 +586,9 @@ textarea { resize: vertical; min-height: 90px; line-height: 1.6; }
   <div class="filter-row">
     <select id="filter-crop" onchange="renderList()"><option value="">전체 작물</option></select>
     <select id="filter-month" onchange="renderList()"><option value="">전체 월</option></select>
+  </div>
+  <div style="text-align:right;margin-bottom:10px;">
+    <button class="btn-excel" onclick="exportCSV('entries')">📊 엑셀 다운로드</button>
   </div>
   <div class="card" id="entry-list"></div>
 </section>
@@ -620,6 +644,15 @@ textarea { resize: vertical; min-height: 90px; line-height: 1.6; }
     <div style="font-size:13px;color:var(--text-hint);margin-bottom:14px;">저장해둔 백업 파일을 불러옵니다. 기존 데이터는 덮어씌워집니다.</div>
     <input type="file" id="import-file" accept=".json" style="display:none;" onchange="importData(this)" />
     <button class="btn-save" onclick="document.getElementById('import-file').click()" style="margin-top:0;background:var(--blue);">📂 백업 파일 불러오기</button>
+  </div>
+
+  <div class="card">
+    <div style="font-size:15px;font-weight:700;margin-bottom:4px;">📊 엑셀 파일 내보내기</div>
+    <div style="font-size:13px;color:var(--text-hint);margin-bottom:14px;">기록을 엑셀(CSV)로 저장합니다. 엑셀·구글 시트에서 바로 열 수 있습니다.</div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn-excel" style="flex:1;justify-content:center;" onclick="exportCSV('entries')">🌱 농사일지 엑셀</button>
+      <button class="btn-excel" style="flex:1;justify-content:center;" onclick="exportCSV('supplies')">🧴 자재기록 엑셀</button>
+    </div>
   </div>
 
   <div class="card">
@@ -1159,6 +1192,57 @@ function delSupply(id) {
   if (!confirm('이 기록을 삭제할까요?')) return;
   supplies = supplies.filter(s => s.id !== id);
   save(); renderSupplyList();
+}
+
+// ---- 엑셀(CSV) 내보내기 ----
+function exportCSV(type) {
+  const BOM = '﻿'; // 한글 깨짐 방지
+  const date = toDateStr(new Date()).replace(/-/g, '');
+  let csv = '', filename = '';
+
+  if (type === 'entries') {
+    if (!entries.length) { alert('저장된 농사일지가 없습니다.'); return; }
+    const headers = ['날짜', '날씨', '작물', '작업종류', '작업내용', '메모', '사진수'];
+    const rows = entries.map(e => [
+      e.date,
+      e.weather || '',
+      (e.crops || []).join(', '),
+      (e.works || []).join(', '),
+      e.content || '',
+      e.memo || '',
+      (e.photos || []).length
+    ]);
+    csv = BOM + [headers, ...rows].map(r =>
+      r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')
+    ).join('\n');
+    filename = `농사일지_${date}.csv`;
+  } else {
+    if (!supplies.length) { alert('저장된 자재 기록이 없습니다.'); return; }
+    const headers = ['구매일', '구분', '품목명', '구매처', '수량', '단위', '구매금액(원)', '개당단가(원)', '메모'];
+    const rows = supplies.map(s => [
+      s.date,
+      s.cat || '',
+      s.name || '',
+      s.store || '',
+      s.qty || '',
+      s.unit || '',
+      s.price != null ? s.price : '',
+      s.unitPrice != null ? s.unitPrice : '',
+      s.memo || ''
+    ]);
+    csv = BOM + [headers, ...rows].map(r =>
+      r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')
+    ).join('\n');
+    filename = `농자재구매_${date}.csv`;
+  }
+
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 function renderSupplyList() {

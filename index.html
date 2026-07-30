@@ -723,6 +723,13 @@ textarea { resize: vertical; min-height: 90px; line-height: 1.6; }
 <!-- 백업/복원 -->
 <section class="section" id="sec-backup">
   <div class="card">
+    <div style="font-size:15px;font-weight:700;margin-bottom:4px;">📁 자동 백업 폴더 설정</div>
+    <div style="font-size:13px;color:var(--text-hint);margin-bottom:8px;">저장할 때마다 지정 폴더에 자동으로 JSON 저장 · 최신 3개만 유지</div>
+    <div id="backup-folder-status" style="font-size:13px;margin-bottom:10px;padding:8px;background:#f5f5f5;border-radius:8px;">📁 미설정 — 설정 전까지 Downloads 폴더에 저장</div>
+    <button class="btn-save" onclick="pickBackupFolder()" style="margin-top:0;">📁 백업 폴더 선택</button>
+  </div>
+
+  <div class="card">
     <div style="font-size:15px;font-weight:700;margin-bottom:4px;">📤 데이터 내보내기 (백업)</div>
     <div style="font-size:13px;color:var(--text-hint);margin-bottom:14px;">모든 기록을 파일로 저장합니다. PC나 핸드폰에 보관하세요.</div>
     <button class="btn-save" onclick="exportData()" style="margin-top:0;">💾 백업 파일 저장하기 (전체)</button>
@@ -782,27 +789,27 @@ function save() {
   autoDownloadBackup();
 }
 
-function autoDownloadBackup() {
-  const data = {
-    version: 1,
-    exportDate: new Date().toISOString(),
-    entries,
-    crops,
-    supplies
-  };
+async function autoDownloadBackup() {
+  const now  = new Date();
+  const ts   = now.toISOString().replace(/[:.]/g,'-').slice(0,16);
+  const filename = `doseongnae_${ts}.json`;
+  const data = { version: 1, exportDate: now.toISOString(), entries, crops, supplies };
   const json = JSON.stringify(data, null, 2);
+
+  // 지정 폴더에 저장 시도 → 성공 시 종료
+  if (backupDirHandle) {
+    const saved = await saveToBackupDir(filename, json);
+    if (saved) { updateAutosaveStatus(now.toISOString()); return; }
+  }
+
+  // 폴더 미지정 or 실패 → Downloads 폴더에 다운로드
   const blob = new Blob([json], { type: 'application/json' });
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
-  const ts   = new Date().toISOString().replace(/[:.]/g,'-').slice(0,16);
-  a.href = url;
-  a.download = `doseongnae_${ts}.json`;
-  a.style.display = 'none';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-  updateAutosaveStatus(new Date().toISOString());
+  a.href = url; a.download = filename; a.style.display = 'none';
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a); URL.revokeObjectURL(url);
+  updateAutosaveStatus(now.toISOString());
 }
 
 function saveAutoBackup() {
@@ -862,6 +869,7 @@ function updateAutosaveStatus(isoTs) {
 }
 
 function init() {
+  initBackupDir();
   const now = new Date();
   calYear  = now.getFullYear();
   calMonth = now.getMonth();
@@ -1292,6 +1300,101 @@ function closePhotoModal() {
 
 function closeModal(e) {
   if(e.target === document.getElementById('photo-modal')) closePhotoModal();
+}
+
+// ---- IndexedDB 헬퍼 (FileSystem handle 보관용) ----
+function idbOpen() {
+  return new Promise(resolve => {
+    const req = indexedDB.open('fj_fsdb', 1);
+    req.onupgradeneeded = e => e.target.result.createObjectStore('handles');
+    req.onsuccess = e => resolve(e.target.result);
+    req.onerror   = () => resolve(null);
+  });
+}
+async function idbGet(key) {
+  const db = await idbOpen(); if (!db) return null;
+  return new Promise(resolve => {
+    const req = db.transaction('handles','readonly').objectStore('handles').get(key);
+    req.onsuccess = () => resolve(req.result || null);
+    req.onerror   = () => resolve(null);
+  });
+}
+async function idbSet(key, value) {
+  const db = await idbOpen(); if (!db) return;
+  return new Promise(resolve => {
+    const tx = db.transaction('handles','readwrite');
+    tx.objectStore('handles').put(value, key);
+    tx.oncomplete = () => resolve();
+    tx.onerror    = () => resolve();
+  });
+}
+
+// ---- 자동 백업 폴더 (File System Access API) ----
+let backupDirHandle = null;
+
+async function initBackupDir() {
+  if (!('showDirectoryPicker' in window)) return;
+  try {
+    backupDirHandle = await idbGet('backupDir');
+    updateFolderStatus();
+  } catch(e) {}
+}
+
+async function pickBackupFolder() {
+  if (!('showDirectoryPicker' in window)) {
+    alert('최신 Chrome 브라우저에서만 지원됩니다.\nDownloads 폴더에 저장을 계속합니다.');
+    return;
+  }
+  try {
+    const handle = await window.showDirectoryPicker({ mode: 'readwrite', startIn: 'downloads' });
+    backupDirHandle = handle;
+    await idbSet('backupDir', handle);
+    updateFolderStatus();
+    alert(`✅ 백업 폴더 설정 완료!\n"${handle.name}" 폴더에 자동 저장됩니다.\n(최신 3개만 유지)`);
+  } catch(e) {
+    if (e.name !== 'AbortError') alert('폴더 선택 중 오류가 발생했습니다.');
+  }
+}
+
+function updateFolderStatus() {
+  const el = document.getElementById('backup-folder-status');
+  if (!el) return;
+  if (backupDirHandle) {
+    el.style.background = '#e8f5e9';
+    el.style.color = '#2e7d32';
+    el.textContent = `✅ 백업 폴더: ${backupDirHandle.name}`;
+  } else {
+    el.style.background = '#f5f5f5';
+    el.style.color = '#888';
+    el.textContent = '📁 미설정 — 설정 전까지 Downloads 폴더에 저장';
+  }
+}
+
+async function saveToBackupDir(filename, json) {
+  if (!backupDirHandle) return false;
+  try {
+    let perm = await backupDirHandle.queryPermission({ mode: 'readwrite' });
+    if (perm !== 'granted') perm = await backupDirHandle.requestPermission({ mode: 'readwrite' });
+    if (perm !== 'granted') return false;
+    const fh = await backupDirHandle.getFileHandle(filename, { create: true });
+    const writable = await fh.createWritable();
+    await writable.write(json);
+    await writable.close();
+    await cleanupBackupDir();
+    return true;
+  } catch(e) { console.warn('폴더 저장 실패:', e); return false; }
+}
+
+async function cleanupBackupDir() {
+  if (!backupDirHandle) return;
+  try {
+    const files = [];
+    for await (const [name] of backupDirHandle.entries()) {
+      if (name.startsWith('doseongnae_') && name.endsWith('.json')) files.push(name);
+    }
+    files.sort().reverse(); // 최신순
+    for (const name of files.slice(3)) await backupDirHandle.removeEntry(name);
+  } catch(e) {}
 }
 
 // ---- 백업 / 복원 ----
