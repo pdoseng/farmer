@@ -782,6 +782,7 @@ textarea { resize: vertical; min-height: 90px; line-height: 1.6; }
 </section>
 
 <script>
+const APP_VERSION = 1;
 const ENTRY_KEY  = 'fj_entries_v1';
 const CROP_KEY   = 'fj_crops_v1';
 const SUPPLY_KEY = 'fj_supply_v1';
@@ -905,7 +906,7 @@ function init() {
   initBackupDir();
   const mod = new Date(document.lastModified);
   const vd = document.getElementById('ver-date');
-  if (vd) vd.textContent = `${mod.getFullYear()}.${String(mod.getMonth()+1).padStart(2,'0')}.${String(mod.getDate()).padStart(2,'0')}`;
+  if (vd) vd.textContent = `${mod.getFullYear()}.${String(mod.getMonth()+1).padStart(2,'0')}.${String(mod.getDate()).padStart(2,'0')} V${APP_VERSION}`;
   const now = new Date();
   calYear  = now.getFullYear();
   calMonth = now.getMonth();
@@ -1596,7 +1597,7 @@ function exportCSV(type) {
 
   if (type === 'entries') {
     if (!entries.length) { alert('저장된 농사일지가 없습니다.'); return; }
-    const headers = ['날짜', '날씨', '작물', '작업종류', '작업내용', '농약살포정보', '메모', '사진수'];
+    const headers = ['날짜', '농약살포정보', '날씨', '작물', '작업내용', '메모', '사진수'];
     const rows = entries.map(e => {
       const pests = (e.pesticides && e.pesticides.length ? e.pesticides : (e.pesticide ? [e.pesticide] : []))
         .filter(p => p.name || p.qty || p.note)
@@ -1604,11 +1605,10 @@ function exportCSV(type) {
         .join(' / ');
       return [
         e.date,
+        pests,
         e.weather || '',
         (e.crops || []).join(', '),
-        (e.works || []).join(', '),
         e.content || '',
-        pests,
         e.memo || '',
         (e.photos || []).length
       ];
