@@ -1596,16 +1596,23 @@ function exportCSV(type) {
 
   if (type === 'entries') {
     if (!entries.length) { alert('저장된 농사일지가 없습니다.'); return; }
-    const headers = ['날짜', '날씨', '작물', '작업종류', '작업내용', '메모', '사진수'];
-    const rows = entries.map(e => [
-      e.date,
-      e.weather || '',
-      (e.crops || []).join(', '),
-      (e.works || []).join(', '),
-      e.content || '',
-      e.memo || '',
-      (e.photos || []).length
-    ]);
+    const headers = ['날짜', '날씨', '작물', '작업종류', '작업내용', '농약살포정보', '메모', '사진수'];
+    const rows = entries.map(e => {
+      const pests = (e.pesticides && e.pesticides.length ? e.pesticides : (e.pesticide ? [e.pesticide] : []))
+        .filter(p => p.name || p.qty || p.note)
+        .map(p => [p.name, p.qty && p.unit ? p.qty + p.unit : '', p.note].filter(Boolean).join(' '))
+        .join(' / ');
+      return [
+        e.date,
+        e.weather || '',
+        (e.crops || []).join(', '),
+        (e.works || []).join(', '),
+        e.content || '',
+        pests,
+        e.memo || '',
+        (e.photos || []).length
+      ];
+    });
     csv = BOM + [headers, ...rows].map(r =>
       r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')
     ).join('\n');
