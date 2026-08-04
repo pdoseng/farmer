@@ -782,7 +782,7 @@ textarea { resize: vertical; min-height: 90px; line-height: 1.6; }
 </section>
 
 <script>
-const APP_VERSION = 1;
+const APP_VERSION = 2;
 const ENTRY_KEY  = 'fj_entries_v1';
 const CROP_KEY   = 'fj_crops_v1';
 const SUPPLY_KEY = 'fj_supply_v1';
@@ -816,34 +816,32 @@ function load() {
 }
 
 function save() {
-  localStorage.setItem(ENTRY_KEY,  JSON.stringify(entries));
-  localStorage.setItem(CROP_KEY,   JSON.stringify(crops));
-  localStorage.setItem(SUPPLY_KEY, JSON.stringify(supplies));
+  try {
+    localStorage.setItem(ENTRY_KEY,  JSON.stringify(entries));
+    localStorage.setItem(CROP_KEY,   JSON.stringify(crops));
+    localStorage.setItem(SUPPLY_KEY, JSON.stringify(supplies));
+  } catch(e) {
+    if (e.name === 'QuotaExceededError' || e.code === 22) {
+      alert('⚠️ 저장 공간이 부족합니다.\n사진이 많으면 용량이 초과될 수 있습니다.\n백업 후 오래된 기록을 삭제해 주세요.');
+    } else {
+      alert('저장 중 오류가 발생했습니다: ' + e.message);
+    }
+    return;
+  }
   saveAutoBackup();
   autoDownloadBackup();
 }
 
 async function autoDownloadBackup() {
+  // 폴더가 지정된 경우에만 자동 저장 (미지정시 자동 다운로드 안 함)
+  if (!backupDirHandle) return;
   const now  = new Date();
   const ts   = now.toISOString().replace(/[:.]/g,'-').slice(0,16);
   const filename = `doseongnae_${ts}.json`;
   const data = { version: 1, exportDate: now.toISOString(), entries, crops, supplies };
   const json = JSON.stringify(data, null, 2);
-
-  // 지정 폴더에 저장 시도 → 성공 시 종료
-  if (backupDirHandle) {
-    const saved = await saveToBackupDir(filename, json);
-    if (saved) { updateAutosaveStatus(now.toISOString()); return; }
-  }
-
-  // 폴더 미지정 or 실패 → Downloads 폴더에 다운로드
-  const blob = new Blob([json], { type: 'application/json' });
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement('a');
-  a.href = url; a.download = filename; a.style.display = 'none';
-  document.body.appendChild(a); a.click();
-  document.body.removeChild(a); URL.revokeObjectURL(url);
-  updateAutosaveStatus(now.toISOString());
+  const saved = await saveToBackupDir(filename, json);
+  if (saved) updateAutosaveStatus(now.toISOString());
 }
 
 function saveAutoBackup() {
@@ -1282,6 +1280,11 @@ function handlePhotos(input) {
         const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
         selPhotos.push(dataUrl);
         loaded++;
+        if(loaded === toAdd.length) renderPhotoPreview();
+      };
+      img.onerror = () => {
+        loaded++;
+        alert('사진을 불러오는 데 실패했습니다. 다른 사진을 시도해 주세요.');
         if(loaded === toAdd.length) renderPhotoPreview();
       };
       img.src = ev.target.result;
