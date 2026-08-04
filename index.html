@@ -473,9 +473,34 @@ textarea { resize: vertical; min-height: 90px; line-height: 1.6; }
 }
 .day-modal-body { padding: 8px 16px 16px; }
 .day-modal-empty { text-align:center; color:var(--text-hint); padding:30px 0; font-size:14px; }
+
+/* 토스트 알림 */
+#toast {
+  position: fixed;
+  bottom: 90px;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: rgba(30,30,20,0.88);
+  color: #fff;
+  padding: 12px 24px;
+  border-radius: 24px;
+  font-size: 15px;
+  font-weight: 500;
+  white-space: nowrap;
+  z-index: 9999;
+  opacity: 0;
+  transition: opacity 0.2s, transform 0.2s;
+  pointer-events: none;
+}
+#toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
 </style>
 </head>
 <body>
+
+<div id="toast"></div>
 
 <div class="header">
   <div class="header-top">
@@ -782,7 +807,16 @@ textarea { resize: vertical; min-height: 90px; line-height: 1.6; }
 </section>
 
 <script>
-const APP_VERSION = 2;
+const APP_VERSION = 3;
+
+let _toastTimer = null;
+function showToast(msg, duration = 1800) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  if (_toastTimer) clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => el.classList.remove('show'), duration);
+}
 const ENTRY_KEY  = 'fj_entries_v1';
 const CROP_KEY   = 'fj_crops_v1';
 const SUPPLY_KEY = 'fj_supply_v1';
@@ -976,11 +1010,11 @@ function saveEntry() {
     const idx = entries.findIndex(e => e.id === editId);
     if (idx !== -1) entries[idx] = { id: editId, ...data };
     save(); clearForm();
-    alert('수정되었습니다! ✅');
+    showToast('✅ 수정 완료되었습니다');
   } else {
     entries.unshift({ id: Date.now(), ...data });
     save(); clearForm();
-    alert('저장되었습니다! ✅');
+    showToast('✅ 저장 완료되었습니다');
   }
 }
 
@@ -1723,7 +1757,7 @@ function saveSupply() {
   supplies.unshift({ id: Date.now(), date, cat: selSupCat, name, store, qty, unit, price, unitPrice, memo, photo: supPhotoData });
   save();
   clearSupplyForm();
-  alert('저장되었습니다! ✅');
+  showToast('✅ 저장 완료되었습니다');
   renderSupplyList();
 }
 
