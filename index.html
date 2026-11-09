@@ -765,13 +765,29 @@ textarea { resize: vertical; min-height: 90px; line-height: 1.6; }
       <button class="chip ev-rel-chip" data-rel="기타" onclick="pickEvRel(this)">기타</button>
     </div>
 
-    <div class="field-label">금액 (원)</div>
-    <input type="text" id="ev-amount" placeholder="예: 50,000" inputmode="numeric" oninput="fmtPrice(this)" />
-    <div class="chip-row" style="margin-top:8px;">
-      <button class="chip" onclick="setEvAmount(30000)">3만</button>
-      <button class="chip" onclick="setEvAmount(50000)">5만</button>
-      <button class="chip" onclick="setEvAmount(100000)">10만</button>
-      <button class="chip" onclick="setEvAmount(200000)">20만</button>
+    <div class="field-label">형태 (여러 개 선택 가능)</div>
+    <div class="chip-row" id="ev-kind-chips">
+      <button class="chip ev-kind-chip sel-evcat" data-kind="현금" onclick="toggleEvKind(this)">💵 현금</button>
+      <button class="chip ev-kind-chip" data-kind="화환" onclick="toggleEvKind(this)">💐 화환</button>
+      <button class="chip ev-kind-chip" data-kind="선물" onclick="toggleEvKind(this)">🎁 선물</button>
+    </div>
+
+    <div id="ev-cash-wrap">
+      <div class="field-label">현금 금액 (원)</div>
+      <input type="text" id="ev-amount" placeholder="예: 50,000" inputmode="numeric" oninput="fmtPrice(this)" />
+      <div class="chip-row" style="margin-top:8px;">
+        <button class="chip" onclick="setEvAmount(30000)">3만</button>
+        <button class="chip" onclick="setEvAmount(50000)">5만</button>
+        <button class="chip" onclick="setEvAmount(100000)">10만</button>
+        <button class="chip" onclick="setEvAmount(200000)">20만</button>
+      </div>
+    </div>
+
+    <div id="ev-gift-wrap" style="display:none;">
+      <div class="field-label">화환 / 선물 내용</div>
+      <input type="text" id="ev-gift" placeholder="예: 근조화환 3단, 축하화환, 과일바구니" />
+      <div class="field-label">화환 / 선물 금액 (원, 선택)</div>
+      <input type="text" id="ev-gift-price" placeholder="예: 100,000" inputmode="numeric" oninput="fmtPrice(this)" />
     </div>
 
     <div class="field-label">메모</div>
@@ -800,7 +816,9 @@ textarea { resize: vertical; min-height: 90px; line-height: 1.6; }
   <!-- 요약 -->
   <div class="stat-grid" id="ev-stat-grid" style="margin-bottom:12px;"></div>
 
-  <div style="text-align:right;margin-bottom:10px;">
+  <div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:10px;">
+    <input type="file" id="ev-import-file" accept=".xlsx,.csv" style="display:none;" onchange="importEventFile(this)" />
+    <button class="btn-excel" style="background:var(--blue);" onclick="document.getElementById('ev-import-file').click()">📂 엑셀 불러오기</button>
     <button class="btn-excel" onclick="exportCSV('events')">📊 엑셀 다운로드</button>
   </div>
   <div class="card" id="event-list"></div>
@@ -923,7 +941,7 @@ textarea { resize: vertical; min-height: 90px; line-height: 1.6; }
 </section>
 
 <script>
-const APP_VERSION = 4;
+const APP_VERSION = 5;
 
 let _toastTimer = null;
 function showToast(msg, duration = 1800) {
@@ -946,6 +964,7 @@ let supplies = [];
 let selSupCat = '농약';
 let events = [];
 let selEvDir = '보냄', selEvCat = '결혼', selEvRel = '친척';
+let selEvKinds = ['현금'];
 let evEditId = null;
 let selWeather = '맑음';
 let selCrops = [];
@@ -1804,14 +1823,18 @@ function exportCSV(type) {
     filename = `농자재구매_${date}.csv`;
   } else if (type === 'events') {
     if (!events.length) { alert('저장된 경조사 기록이 없습니다.'); return; }
-    const headers = ['일시', '받음/보냄', '이름', '경조사구분', '관계', '금액(원)', '메모'];
+    const headers = ['일시', '받음/보냄', '이름', '경조사구분', '관계', '형태', '현금(원)', '화환/선물 내용', '화환/선물 금액(원)', '합계(원)', '메모'];
     const rows = [...events].sort((a, b) => b.date.localeCompare(a.date)).map(v => [
       v.date,
       v.dir || '',
       v.name || '',
       v.cat || '',
       v.rel || '',
+      evKinds(v).join('+'),
       v.amount != null ? v.amount : '',
+      v.gift || '',
+      v.giftPrice != null ? v.giftPrice : '',
+      evTotal(v) || '',
       v.memo || ''
     ]);
     csv = BOM + [headers, ...rows].map(r =>
@@ -2027,6 +2050,38 @@ function setEvChips(dir, cat, rel) {
 function setEvAmount(n) {
   document.getElementById('ev-amount').value = n.toLocaleString();
 }
+function toggleEvKind(el) {
+  const k = el.dataset.kind;
+  el.classList.toggle('sel-evcat');
+  if (el.classList.contains('sel-evcat')) { if (!selEvKinds.includes(k)) selEvKinds.push(k); }
+  else selEvKinds = selEvKinds.filter(x => x !== k);
+  updateEvKindFields();
+}
+function setEvKinds(kinds) {
+  selEvKinds = [...kinds];
+  document.querySelectorAll('.ev-kind-chip').forEach(b =>
+    b.classList.toggle('sel-evcat', selEvKinds.includes(b.dataset.kind))
+  );
+  updateEvKindFields();
+}
+function updateEvKindFields() {
+  document.getElementById('ev-cash-wrap').style.display = selEvKinds.includes('현금') ? 'block' : 'none';
+  document.getElementById('ev-gift-wrap').style.display =
+    (selEvKinds.includes('화환') || selEvKinds.includes('선물')) ? 'block' : 'none';
+}
+// 이전 기록(형태 없음)은 현금으로 간주
+function evKinds(v) { return v.kinds && v.kinds.length ? v.kinds : ['현금']; }
+function evTotal(v) { return (v.amount || 0) + (v.giftPrice || 0); }
+function evDetail(v) {
+  const parts = [];
+  if (evKinds(v).includes('현금')) parts.push(`💵 현금${v.amount ? ' ' + v.amount.toLocaleString() + '원' : ''}`);
+  evKinds(v).filter(k => k !== '현금').forEach(k => {
+    parts.push(`${k === '화환' ? '💐' : '🎁'} ${k}`);
+  });
+  let s = parts.join(' · ');
+  if (v.gift || v.giftPrice) s += ` (${[v.gift, v.giftPrice ? v.giftPrice.toLocaleString() + '원' : ''].filter(Boolean).join(', ')})`;
+  return s;
+}
 
 // 같은 이름으로 주고받은 내역 요약 (입력 중 참고용)
 function renderEvHistory() {
@@ -2034,10 +2089,10 @@ function renderEvHistory() {
   const el = document.getElementById('ev-history');
   const past = name ? events.filter(v => v.name === name && v.id !== evEditId) : [];
   if (!past.length) { el.innerHTML = ''; return; }
-  const sumIn  = past.filter(v => v.dir === '받음').reduce((s, v) => s + (v.amount || 0), 0);
-  const sumOut = past.filter(v => v.dir === '보냄').reduce((s, v) => s + (v.amount || 0), 0);
+  const sumIn  = past.filter(v => v.dir === '받음').reduce((s, v) => s + evTotal(v), 0);
+  const sumOut = past.filter(v => v.dir === '보냄').reduce((s, v) => s + evTotal(v), 0);
   const rows = [...past].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5).map(v =>
-    `<div>${v.date} · ${v.dir === '받음' ? '📥 받음' : '📤 보냄'} · ${v.cat} · <b>${(v.amount || 0).toLocaleString()}원</b></div>`
+    `<div>${v.date} · ${v.dir === '받음' ? '📥 받음' : '📤 보냄'} · ${v.cat} · ${evDetail(v)}</div>`
   ).join('');
   el.innerHTML = `<div class="ev-history">
     <div style="font-weight:700;margin-bottom:4px;">📖 ${name}님과 주고받은 내역 (${past.length}건)</div>
@@ -2050,11 +2105,18 @@ function saveEvent() {
   const date = document.getElementById('ev-date').value;
   const name = document.getElementById('ev-name').value.trim();
   const amountRaw = document.getElementById('ev-amount').value.replace(/,/g,'').trim();
+  const giftPriceRaw = document.getElementById('ev-gift-price').value.replace(/,/g,'').trim();
   const memo = document.getElementById('ev-memo').value.trim();
   if (!date) { alert('일시를 선택해주세요.'); return; }
   if (!name) { alert('이름을 입력해주세요.'); return; }
-  const amount = amountRaw ? parseInt(amountRaw, 10) : null;
-  const data = { date, dir: selEvDir, name, cat: selEvCat, rel: selEvRel, amount, memo };
+  if (!selEvKinds.length) { alert('형태(현금/화환/선물)를 선택해주세요.'); return; }
+  const hasCash = selEvKinds.includes('현금');
+  const hasGift = selEvKinds.includes('화환') || selEvKinds.includes('선물');
+  const kinds = ['현금','화환','선물'].filter(k => selEvKinds.includes(k));
+  const amount    = hasCash && amountRaw    ? parseInt(amountRaw, 10)    : null;
+  const gift      = hasGift ? document.getElementById('ev-gift').value.trim() : '';
+  const giftPrice = hasGift && giftPriceRaw ? parseInt(giftPriceRaw, 10) : null;
+  const data = { date, dir: selEvDir, name, cat: selEvCat, rel: selEvRel, kinds, amount, gift, giftPrice, memo };
   if (evEditId) {
     const idx = events.findIndex(v => v.id === evEditId);
     if (idx !== -1) events[idx] = { id: evEditId, ...data };
@@ -2075,8 +2137,11 @@ function clearEventForm() {
   document.getElementById('ev-date').value   = toDateStr(new Date());
   document.getElementById('ev-name').value   = '';
   document.getElementById('ev-amount').value = '';
+  document.getElementById('ev-gift').value   = '';
+  document.getElementById('ev-gift-price').value = '';
   document.getElementById('ev-memo').value   = '';
   setEvChips('보냄', '결혼', '친척');
+  setEvKinds(['현금']);
   renderEvHistory();
 }
 
@@ -2090,8 +2155,11 @@ function editEvent(id) {
   document.getElementById('ev-date').value   = v.date;
   document.getElementById('ev-name').value   = v.name;
   document.getElementById('ev-amount').value = v.amount != null ? v.amount.toLocaleString() : '';
+  document.getElementById('ev-gift').value   = v.gift || '';
+  document.getElementById('ev-gift-price').value = v.giftPrice != null ? v.giftPrice.toLocaleString() : '';
   document.getElementById('ev-memo').value   = v.memo || '';
   setEvChips(v.dir, v.cat, v.rel);
+  setEvKinds(evKinds(v));
   renderEvHistory();
   window.scrollTo(0, 0);
 }
@@ -2127,8 +2195,8 @@ function renderEventList() {
     return true;
   }).sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id);
 
-  const sumIn  = list.filter(v => v.dir === '받음').reduce((s, v) => s + (v.amount || 0), 0);
-  const sumOut = list.filter(v => v.dir === '보냄').reduce((s, v) => s + (v.amount || 0), 0);
+  const sumIn  = list.filter(v => v.dir === '받음').reduce((s, v) => s + evTotal(v), 0);
+  const sumOut = list.filter(v => v.dir === '보냄').reduce((s, v) => s + evTotal(v), 0);
   const diff   = sumIn - sumOut;
   document.getElementById('ev-stat-grid').innerHTML = `
     <div class="stat-box"><div class="stat-num" style="font-size:15px;color:var(--blue);">${sumIn.toLocaleString()}</div><div class="stat-lbl">받은 금액(원)</div></div>
@@ -2148,10 +2216,11 @@ function renderEventList() {
           <span class="tag-sm tag-crop">${v.rel}</span>
         </div>
         <div class="supply-sub">📅 ${v.date} · ${evCatIcon[v.cat]||''} ${v.cat}</div>
+        <div class="supply-sub" style="margin-top:2px;">${evDetail(v)}</div>
         ${v.memo ? `<div class="supply-sub" style="margin-top:2px;">📌 ${v.memo}</div>` : ''}
       </div>
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0;">
-        ${v.amount ? `<div class="${isIn?'ev-amt-in':'ev-amt-out'}">${isIn?'+':'-'}${v.amount.toLocaleString()}원</div>` : ''}
+        ${evTotal(v) ? `<div class="${isIn?'ev-amt-in':'ev-amt-out'}">${isIn?'+':'-'}${evTotal(v).toLocaleString()}원</div>` : ''}
         <div style="display:flex;gap:5px;">
           <button class="btn-del" style="border-color:#b3d4b3;color:var(--green);" onclick="editEvent(${v.id})">수정</button>
           <button class="btn-del" onclick="delEvent(${v.id})">삭제</button>
@@ -2159,6 +2228,306 @@ function renderEventList() {
       </div>
     </div>`;
   }).join('');
+}
+
+// ---- 경조사비 엑셀(xlsx/csv) 불러오기 ----
+// 헤더 이름으로 열을 찾음: 기존 장부(일자/경조사내용/금액/비고)와 앱에서 내려받은 CSV 모두 지원
+const EV_COLS = [
+  ['date',      /일자|일시|날짜/],
+  ['giftPrice', /(화환|선물).*금액/],
+  ['gift',      /(화환|선물).*내용/],
+  ['content',   /^(경조사)?내용$/],
+  ['name',      /이름|성명/],
+  ['cat',       /경조사구분|^구분$/],
+  ['rel',       /관계/],
+  ['dir',       /받음|보냄/],
+  ['kinds',     /^형태/],
+  ['amount',    /^금액|현금/],
+  ['memo',      /비고|메모/]
+];
+const EV_SUFFIX_RE = /^(.+?)((?:부친|모친|장인|장모|빙모|빙부|조모|조부|시부|시모|본인|남편|부인|아들|딸|자녀|동생)상|(?:자녀|아들|딸)?결혼식?|(?:자녀|아들|딸)혼|부의|조의)$/;
+const EV_GIFT_RE   = /조화|화환|근조|축화|화분|꽃|난초|^난$/;
+
+async function importEventFile(input) {
+  const file = input.files[0];
+  input.value = '';
+  if (!file) return;
+  let sheets;
+  try {
+    sheets = /\.csv$/i.test(file.name)
+      ? [{ name: file.name, grid: parseCSVGrid(await readTextAuto(file)) }]
+      : await readXlsxSheets(file);
+  } catch (e) {
+    console.warn(e);
+    alert('파일을 읽지 못했습니다.\n' + (e.message || e));
+    return;
+  }
+  let sheet = null, header = null;
+  for (const s of sheets) { header = detectEvHeader(s.grid); if (header) { sheet = s; break; } }
+  if (!sheet) { alert('경조사 내역을 찾지 못했습니다.\n첫 줄에 "일자"와 "경조사내용"(또는 "이름") 열이 있어야 합니다.'); return; }
+
+  const { recs, failed } = parseEvRows(sheet.grid, header);
+  const existing = new Set(events.map(evKey));
+  const fresh = recs.filter(v => !existing.has(evKey(v)));
+  const guessed = recs.filter(v => v._guess).length;
+  if (!recs.length) { alert('불러올 내역이 없습니다.'); return; }
+  const msg = `'${sheet.name}' 시트에서 ${recs.length}건을 읽었습니다.\n\n`
+    + `· 새로 추가: ${fresh.length}건\n`
+    + `· 이미 있는 기록(제외): ${recs.length - fresh.length}건\n`
+    + (guessed ? `· 날짜 일부 추정: ${guessed}건 (메모에 원본 일자 기록)\n` : '')
+    + (failed ? `· 날짜를 읽지 못해 제외: ${failed}건\n` : '')
+    + (fresh.length ? '\n추가할까요?' : '');
+  if (!fresh.length) { alert(msg + '\n새로 추가할 내역이 없습니다.'); return; }
+  if (!confirm(msg)) return;
+  const base = Date.now();
+  fresh.forEach((v, i) => { delete v._guess; v.id = base + i; });
+  events = fresh.concat(events);
+  save();
+  renderEventList();
+  showToast(`✅ ${fresh.length}건 불러오기 완료`);
+}
+
+function evKey(v) {
+  return [v.date, v.name, v.dir, v.amount || 0, v.giftPrice || 0].join('|');
+}
+
+function detectEvHeader(grid) {
+  for (let r = 0; r < Math.min(grid.length, 10); r++) {
+    const map = {};
+    (grid[r] || []).forEach((c, i) => {
+      const h = String((c && c.v) || '').replace(/\s/g, '');
+      if (!h) return;
+      const hit = EV_COLS.find(([k, re]) => map[k] == null && re.test(h));
+      if (hit) map[hit[0]] = i;
+    });
+    if (map.date != null && (map.content != null || map.name != null)) return { row: r, map };
+  }
+  return null;
+}
+
+function parseEvRows(grid, { row: headerRow, map }) {
+  const get = (r, k) => map[k] != null && r[map[k]] ? r[map[k]] : null;
+  const str = (r, k) => { const c = get(r, k); return c ? String(c.v).trim() : ''; };
+  const num = (r, k) => { const n = parseInt(str(r, k).replace(/[^0-9]/g, ''), 10); return isNaN(n) ? null : n; };
+  const cats = Object.keys(evCatIcon), rels = ['친척','친구','이웃','직장','지인','기타'];
+  const recs = [];
+  let failed = 0;
+
+  for (let i = headerRow + 1; i < grid.length; i++) {
+    const r = grid[i] || [];
+    const content = parseEvContent(str(r, 'content'));
+    const name = str(r, 'name') || content.name;
+    const amount = num(r, 'amount');
+    if (!name && amount == null) continue;               // 빈 줄
+    const pd = parseLooseDate(get(r, 'date'));
+    if (!pd) { failed++; continue; }
+
+    const catCol = str(r, 'cat');
+    const kindsCol = str(r, 'kinds').split(/[+,\/\s]+/).filter(k => ['현금','화환','선물'].includes(k));
+    let gift = str(r, 'gift');
+    const notes = [];
+    if (content.event || content.mid.length) notes.push([...content.mid, content.event].join(' '));
+    notes.push(...content.paren);
+    const bigo = str(r, 'memo');
+    const kinds = kindsCol.length ? kindsCol : (amount != null || !bigo ? ['현금'] : []);
+    // 비고에 '조화' 등이 적혀 있으면 화환으로 분류
+    if (bigo && !gift && map.gift == null && EV_GIFT_RE.test(bigo)) {
+      gift = bigo;
+      if (!kinds.includes('화환')) kinds.push('화환');
+    } else if (bigo) notes.push(bigo);
+    if (gift && !kinds.includes('화환') && !kinds.includes('선물')) kinds.push('화환');
+
+    const dc = get(r, 'date');
+    recs.push({
+      _pd: pd, _raw: dc.num ? String(+parseFloat(dc.v).toFixed(4)) : String(dc.v).trim(),
+      dir: /받/.test(str(r, 'dir')) ? '받음' : '보냄',
+      name: name || '(이름없음)',
+      cat: cats.includes(catCol) ? catCol : evCatFromText(content.event),
+      rel: rels.includes(str(r, 'rel')) ? str(r, 'rel') : '기타',
+      kinds: kinds.length ? kinds : ['현금'],
+      amount, gift, giftPrice: num(r, 'giftPrice'),
+      memo: notes.filter(Boolean).join(' · ')
+    });
+  }
+
+  // 연도가 없는 일자는 바로 앞 기록의 연도를 따름 (장부가 날짜순이라는 가정)
+  const firstKnown = recs.find(v => v._pd.y != null);
+  let lastY = null;
+  for (const v of recs) {
+    const pd = v._pd;
+    let guess = false;
+    if (pd.y != null) lastY = pd.y;
+    else {
+      guess = true;
+      pd.y = lastY != null ? lastY
+        : firstKnown ? (pd.m > firstKnown._pd.m ? firstKnown._pd.y - 1 : firstKnown._pd.y)
+        : new Date().getFullYear();
+    }
+    if (!pd.d || pd.d > new Date(pd.y, pd.m, 0).getDate()) { pd.d = 1; guess = true; }
+    v.date = `${pd.y}-${String(pd.m).padStart(2,'0')}-${String(pd.d).padStart(2,'0')}`;
+    if (guess) v.memo = [v.memo, `원본일자 ${v._raw}`].filter(Boolean).join(' · ');
+    v._guess = guess;
+    delete v._pd; delete v._raw;
+  }
+  return { recs, failed };
+}
+
+// "홍길동 외환팀장 장인상" → 이름 / 중간(직함 등) / 경조사 단어
+function parseEvContent(text) {
+  const paren = [];
+  const s = String(text || '').replace(/\(([^)]*)\)/g, (_, x) => { if (x.trim()) paren.push(x.trim()); return ' '; }).trim();
+  const tok = s.split(/\s+/).filter(Boolean);
+  let name = '', event = '', mid = [];
+  if (tok.length === 1) {
+    const m = tok[0].match(EV_SUFFIX_RE);
+    if (m) { name = m[1]; event = m[2]; } else name = tok[0];
+  } else if (tok.length > 1) {
+    name = tok[0]; event = tok[tok.length - 1]; mid = tok.slice(1, -1);
+  }
+  return { name, event, mid, paren };
+}
+
+function evCatFromText(s) {
+  if (/혼/.test(s)) return '결혼';
+  if (/돌/.test(s)) return '돌잔치';
+  if (/상|부의|조의|사망|조문|별세/.test(s)) return '장례';
+  if (/칠순|팔순|환갑|회갑|생신/.test(s)) return '생신/칠순';
+  if (/개업|이사|입주|집들이/.test(s)) return '개업/이사';
+  if (/병문안|입원|문병/.test(s)) return '병문안';
+  return '기타';
+}
+
+// 다양한 일자 표기 해석: 2024-03-05, 24.03.05, 3.8(연도 없음), 12.10.(일 없음), 24.0828, 엑셀 날짜값
+// 반환 { y|null, m, d|null }
+function parseLooseDate(cell) {
+  if (!cell || cell.v == null || String(cell.v).trim() === '') return null;
+  const raw = String(cell.v).trim();
+  let s;
+  if (cell.num) {
+    const x = parseFloat(raw);
+    if (x > 20000) {
+      const dt = new Date(Math.round((x - 25569) * 86400000));
+      return { y: dt.getUTCFullYear(), m: dt.getUTCMonth() + 1, d: dt.getUTCDate() };
+    }
+    s = String(+x.toFixed(4));   // 4.0599999 → 4.06
+  } else {
+    const full = raw.match(/^(\d{4})\s*[.\-\/년]\s*(\d{1,2})\s*[.\-\/월]\s*(\d{1,2})/);
+    if (full) return { y: +full[1], m: +full[2], d: +full[3] };
+    s = raw.replace(/[^0-9.xX]/g, '');
+  }
+  // 중간의 빈 칸(19..06.27)은 무시, 끝의 빈 칸(12.10.)은 '일 미상'으로 유지
+  const tok = s.split('.').filter((t, i, a) => t !== '' || (i > 0 && i === a.length - 1));
+  const n = t => /^\d+$/.test(t) ? parseInt(t, 10) : null;
+  let y = null, m, d;
+  if (tok.length === 3)                                   { y = n(tok[0]); m = n(tok[1]); d = n(tok[2]); }
+  else if (tok.length === 2 && /^\d{4}$/.test(tok[1]))    { y = n(tok[0]); m = n(tok[1].slice(0, 2)); d = n(tok[1].slice(2)); }
+  else if (tok.length === 2)                              { m = n(tok[0]); d = n(tok[1]); }
+  else return null;
+  if (y != null && y < 100) y += 2000;
+  if (!m || m > 12) return null;
+  if (!d || d > 31) d = null;
+  return { y, m, d };
+}
+
+// CSV: UTF-8이 아니면 엑셀 기본 저장 형식(EUC-KR)으로 읽음
+async function readTextAuto(file) {
+  const buf = await file.arrayBuffer();
+  try { return new TextDecoder('utf-8', { fatal: true }).decode(buf).replace(/^﻿/, ''); }
+  catch (e) { return new TextDecoder('euc-kr').decode(buf); }
+}
+
+function parseCSVGrid(text) {
+  const rows = [];
+  let row = [], cur = '', q = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (q) {
+      if (ch === '"') { if (text[i + 1] === '"') { cur += '"'; i++; } else q = false; }
+      else cur += ch;
+    } else if (ch === '"') q = true;
+    else if (ch === ',') { row.push(cur); cur = ''; }
+    else if (ch === '\n' || ch === '\r') {
+      if (ch === '\r' && text[i + 1] === '\n') i++;
+      row.push(cur); rows.push(row); row = []; cur = '';
+    } else cur += ch;
+  }
+  if (cur || row.length) { row.push(cur); rows.push(row); }
+  return rows.map(r => r.map(v => ({ v, num: false })));
+}
+
+// xlsx(zip) 해제 후 시트별 2차원 배열 반환 → [{ name, grid: [[{v, num}]] }]
+async function readXlsxSheets(file) {
+  const files = await unzipXml(await file.arrayBuffer());
+  const parse = s => new DOMParser().parseFromString(s, 'application/xml');
+  const strs = [];
+  if (files['xl/sharedStrings.xml']) {
+    for (const si of parse(files['xl/sharedStrings.xml']).getElementsByTagName('si')) {
+      strs.push([...si.getElementsByTagName('t')].filter(t => t.parentNode.nodeName !== 'rPh').map(t => t.textContent).join(''));
+    }
+  }
+  const rels = {};
+  if (files['xl/_rels/workbook.xml.rels']) {
+    for (const r of parse(files['xl/_rels/workbook.xml.rels']).getElementsByTagName('Relationship'))
+      rels[r.getAttribute('Id')] = r.getAttribute('Target').replace(/^\/?(xl\/)?/, 'xl/');
+  }
+  const colIdx = ref => { let n = 0; for (const ch of ref.replace(/\d/g, '')) n = n * 26 + ch.charCodeAt(0) - 64; return n - 1; };
+  const out = [];
+  for (const sh of parse(files['xl/workbook.xml'] || '<x/>').getElementsByTagName('sheet')) {
+    const xml = files[rels[sh.getAttribute('r:id')]];
+    if (!xml) continue;
+    const grid = [];
+    let rowNo = 0;
+    for (const row of parse(xml).getElementsByTagName('row')) {
+      rowNo = parseInt(row.getAttribute('r'), 10) || rowNo + 1;
+      const cells = [];
+      let col = -1;
+      for (const c of row.getElementsByTagName('c')) {
+        col = c.getAttribute('r') ? colIdx(c.getAttribute('r')) : col + 1;
+        const t = c.getAttribute('t');
+        const vEl = c.getElementsByTagName('v')[0];
+        let v = vEl ? vEl.textContent : '';
+        if (t === 's') v = strs[parseInt(v, 10)] || '';
+        else if (t === 'inlineStr') v = c.textContent;
+        cells[col] = { v, num: (!t || t === 'n') && v !== '' };
+      }
+      grid[rowNo - 1] = cells;
+    }
+    out.push({ name: sh.getAttribute('name'), grid });
+  }
+  return out;
+}
+
+async function unzipXml(buf) {
+  const dv = new DataView(buf), u8 = new Uint8Array(buf), dec = new TextDecoder();
+  let eocd = -1;
+  for (let i = buf.byteLength - 22; i >= Math.max(0, buf.byteLength - 65557); i--) {
+    if (dv.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+  }
+  if (eocd < 0) throw new Error('엑셀(xlsx) 파일이 아닙니다.');
+  const count = dv.getUint16(eocd + 10, true);
+  let p = dv.getUint32(eocd + 16, true);
+  const out = {};
+  for (let k = 0; k < count && dv.getUint32(p, true) === 0x02014b50; k++) {
+    const method = dv.getUint16(p + 10, true);
+    const csize  = dv.getUint32(p + 20, true);
+    const nlen = dv.getUint16(p + 28, true), elen = dv.getUint16(p + 30, true), clen = dv.getUint16(p + 32, true);
+    const lho  = dv.getUint32(p + 42, true);
+    const name = dec.decode(u8.subarray(p + 46, p + 46 + nlen)).replace(/^\//, '');
+    p += 46 + nlen + elen + clen;
+    if (!/\.(xml|rels)$/.test(name)) continue;
+    const start = lho + 30 + dv.getUint16(lho + 26, true) + dv.getUint16(lho + 28, true);
+    const data  = u8.subarray(start, start + csize);
+    if (method === 0) out[name] = dec.decode(data);
+    else if (method === 8) out[name] = dec.decode(await inflateRaw(data));
+  }
+  return out;
+}
+
+async function inflateRaw(data) {
+  if (typeof DecompressionStream === 'undefined')
+    throw new Error('이 브라우저는 xlsx 읽기를 지원하지 않습니다.\n최신 크롬을 사용하거나, 엑셀에서 CSV로 저장해 올려주세요.');
+  const stream = new Blob([data]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+  return new Uint8Array(await new Response(stream).arrayBuffer());
 }
 </script>
 
