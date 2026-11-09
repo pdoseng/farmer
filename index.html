@@ -458,6 +458,37 @@ textarea { resize: vertical; min-height: 90px; line-height: 1.6; }
 .ev-dir-out { background: #fde8e8; color: #c0392b; }
 .ev-amt-in  { font-size:15px; font-weight:700; color:var(--blue); white-space:nowrap; }
 .ev-amt-out { font-size:15px; font-weight:700; color:#c0392b; white-space:nowrap; }
+.ev-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.ev-row:last-child { border-bottom: none; }
+.ev-row > span { flex-shrink: 0; }
+.ev-row-date { color: var(--text-hint); font-size: 12px; font-variant-numeric: tabular-nums; }
+.ev-row-dir  { padding: 1px 6px; border-radius: 8px; font-size: 11px; font-weight: 700; }
+.ev-row > .ev-row-main { flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--text-sub); }
+.ev-row-main b { color: var(--text); }
+.ev-row > .ev-row-memo { display: none; }
+.ev-row > .ev-row-amt { font-size: 13px; font-variant-numeric: tabular-nums; }
+/* 눌렀을 때: 전체 내용과 상세(구분·관계·형태·메모)를 다음 줄에 표시 */
+.ev-row.open { flex-wrap: wrap; }
+.ev-row.open > .ev-row-main { white-space: normal; }
+.ev-row.open > .ev-row-memo { display: block; order: 10; flex-basis: 100%; white-space: normal; padding-top: 2px; color: var(--text-hint); font-size: 12px; }.ev-row-btn {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  padding: 2px 3px;
+  font-size: 13px;
+  color: var(--text-hint);
+  cursor: pointer;
+  font-family: inherit;
+}
 .ev-history {
   margin-top: 10px;
   padding: 10px 12px;
@@ -807,19 +838,27 @@ textarea { resize: vertical; min-height: 90px; line-height: 1.6; }
       <option value="">전체 구분</option>
       <option>결혼</option><option>장례</option><option>돌잔치</option><option>생신/칠순</option><option>개업/이사</option><option>병문안</option><option>기타</option>
     </select>
-    <select id="ev-filter-year" onchange="renderEventList()">
-      <option value="">전체 연도</option>
+    <select id="ev-filter-period" onchange="onEvPeriodChange()">
+      <option value="">전체 기간</option>
     </select>
   </div>
-  <input type="text" id="ev-search" placeholder="🔍 이름 검색" oninput="renderEventList()" style="margin-bottom:12px;" />
+  <div class="filter-row" id="ev-period-custom" style="display:none;align-items:center;">
+    <input type="date" id="ev-from" onchange="renderEventList()" style="flex:1;font-size:13px;padding:9px 10px;" />
+    <span style="color:var(--text-hint);">~</span>
+    <input type="date" id="ev-to" onchange="renderEventList()" style="flex:1;font-size:13px;padding:9px 10px;" />
+  </div>
+  <input type="text" id="ev-search" placeholder="🔍 이름 또는 내용 검색 (예: 홍길동, 자녀혼)" oninput="renderEventList()" style="margin-bottom:12px;" />
 
   <!-- 요약 -->
   <div class="stat-grid" id="ev-stat-grid" style="margin-bottom:12px;"></div>
 
-  <div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:10px;">
+  <div style="display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-bottom:10px;">
+    <span id="ev-count" style="font-size:12px;color:var(--text-sub);white-space:nowrap;"></span>
+    <button id="ev-reset" onclick="resetEvFilters()" style="display:none;padding:4px 8px;background:none;border:1px solid var(--border);border-radius:6px;font-size:11px;color:var(--text-sub);cursor:pointer;font-family:inherit;white-space:nowrap;">초기화</button>
+    <span style="margin-right:auto;"></span>
     <input type="file" id="ev-import-file" accept=".xlsx,.csv" style="display:none;" onchange="importEventFile(this)" />
-    <button class="btn-excel" style="background:var(--blue);" onclick="document.getElementById('ev-import-file').click()">📂 엑셀 불러오기</button>
-    <button class="btn-excel" onclick="exportCSV('events')">📊 엑셀 다운로드</button>
+    <button class="btn-excel" style="background:var(--blue);" onclick="document.getElementById('ev-import-file').click()">📂 불러오기</button>
+    <button class="btn-excel" onclick="exportCSV('events-filtered')" title="현재 검색 결과를 엑셀로 내려받습니다">📊 다운로드</button>
   </div>
   <div class="card" id="event-list"></div>
 </section>
@@ -941,7 +980,7 @@ textarea { resize: vertical; min-height: 90px; line-height: 1.6; }
 </section>
 
 <script>
-const APP_VERSION = 5;
+const APP_VERSION = 6;
 
 let _toastTimer = null;
 function showToast(msg, duration = 1800) {
@@ -1821,10 +1860,12 @@ function exportCSV(type) {
       r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')
     ).join('\n');
     filename = `농자재구매_${date}.csv`;
-  } else if (type === 'events') {
-    if (!events.length) { alert('저장된 경조사 기록이 없습니다.'); return; }
+  } else if (type === 'events' || type === 'events-filtered') {
+    // 경조사 탭에서는 현재 검색/필터 결과만, 백업 탭에서는 전체
+    const src = type === 'events-filtered' ? getFilteredEvents() : events;
+    if (!src.length) { alert(events.length ? '검색 결과가 없습니다.' : '저장된 경조사 기록이 없습니다.'); return; }
     const headers = ['일시', '받음/보냄', '이름', '경조사구분', '관계', '형태', '현금(원)', '화환/선물 내용', '화환/선물 금액(원)', '합계(원)', '메모'];
-    const rows = [...events].sort((a, b) => b.date.localeCompare(a.date)).map(v => [
+    const rows = [...src].sort((a, b) => b.date.localeCompare(a.date)).map(v => [
       v.date,
       v.dir || '',
       v.name || '',
@@ -2072,6 +2113,9 @@ function updateEvKindFields() {
 // 이전 기록(형태 없음)은 현금으로 간주
 function evKinds(v) { return v.kinds && v.kinds.length ? v.kinds : ['현금']; }
 function evTotal(v) { return (v.amount || 0) + (v.giftPrice || 0); }
+function escHtml(s) {
+  return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
 function evDetail(v) {
   const parts = [];
   if (evKinds(v).includes('현금')) parts.push(`💵 현금${v.amount ? ' ' + v.amount.toLocaleString() + '원' : ''}`);
@@ -2079,7 +2123,7 @@ function evDetail(v) {
     parts.push(`${k === '화환' ? '💐' : '🎁'} ${k}`);
   });
   let s = parts.join(' · ');
-  if (v.gift || v.giftPrice) s += ` (${[v.gift, v.giftPrice ? v.giftPrice.toLocaleString() + '원' : ''].filter(Boolean).join(', ')})`;
+  if (v.gift || v.giftPrice) s += ` (${[escHtml(v.gift), v.giftPrice ? v.giftPrice.toLocaleString() + '원' : ''].filter(Boolean).join(', ')})`;
   return s;
 }
 
@@ -2089,13 +2133,19 @@ function renderEvHistory() {
   const el = document.getElementById('ev-history');
   const past = name ? events.filter(v => v.name === name && v.id !== evEditId) : [];
   if (!past.length) { el.innerHTML = ''; return; }
+  // 새로 입력할 때는 지난번 관계를 자동 선택
+  if (!evEditId) {
+    const last = [...past].sort((a, b) => b.date.localeCompare(a.date))[0];
+    const relChip = document.querySelector(`.ev-rel-chip[data-rel="${last.rel}"]`);
+    if (relChip && last.rel !== selEvRel) pickEvRel(relChip);
+  }
   const sumIn  = past.filter(v => v.dir === '받음').reduce((s, v) => s + evTotal(v), 0);
   const sumOut = past.filter(v => v.dir === '보냄').reduce((s, v) => s + evTotal(v), 0);
   const rows = [...past].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5).map(v =>
     `<div>${v.date} · ${v.dir === '받음' ? '📥 받음' : '📤 보냄'} · ${v.cat} · ${evDetail(v)}</div>`
   ).join('');
   el.innerHTML = `<div class="ev-history">
-    <div style="font-weight:700;margin-bottom:4px;">📖 ${name}님과 주고받은 내역 (${past.length}건)</div>
+    <div style="font-weight:700;margin-bottom:4px;">📖 ${escHtml(name)}님과 주고받은 내역 (${past.length}건)</div>
     <div>받음 <b style="color:var(--blue);">${sumIn.toLocaleString()}원</b> · 보냄 <b style="color:#c0392b;">${sumOut.toLocaleString()}원</b></div>
     <div style="margin-top:4px;">${rows}</div>
   </div>`;
@@ -2116,6 +2166,10 @@ function saveEvent() {
   const amount    = hasCash && amountRaw    ? parseInt(amountRaw, 10)    : null;
   const gift      = hasGift ? document.getElementById('ev-gift').value.trim() : '';
   const giftPrice = hasGift && giftPriceRaw ? parseInt(giftPriceRaw, 10) : null;
+  if (hasCash && amount == null && !confirm('현금 금액이 비어 있습니다. 그대로 저장할까요?')) {
+    document.getElementById('ev-amount').focus();
+    return;
+  }
   const data = { date, dir: selEvDir, name, cat: selEvCat, rel: selEvRel, kinds, amount, gift, giftPrice, memo };
   if (evEditId) {
     const idx = events.findIndex(v => v.id === evEditId);
@@ -2171,29 +2225,71 @@ function delEvent(id) {
   save(); renderEventList();
 }
 
-function renderEventList() {
-  const fdir  = document.getElementById('ev-filter-dir').value;
-  const fcat  = document.getElementById('ev-filter-cat').value;
-  const fyear = document.getElementById('ev-filter-year');
-  const q     = document.getElementById('ev-search').value.trim();
+function onEvPeriodChange() {
+  const p = document.getElementById('ev-filter-period').value;
+  document.getElementById('ev-period-custom').style.display = p === 'custom' ? 'flex' : 'none';
+  if (p === 'custom' && !document.getElementById('ev-from').value) {
+    const d = new Date(); d.setFullYear(d.getFullYear() - 1);
+    document.getElementById('ev-from').value = toDateStr(d);
+    document.getElementById('ev-to').value   = toDateStr(new Date());
+  }
+  renderEventList();
+}
 
+// 기간 선택값 → [시작일, 종료일] ('' = 제한 없음)
+function evPeriodRange(p) {
+  const now = new Date(), y = now.getFullYear();
+  const ago = (months) => { const d = new Date(now); d.setMonth(d.getMonth() - months); return toDateStr(d); };
+  if (p === 'm1') return [toDateStr(new Date(y, now.getMonth(), 1)), ''];
+  if (p === 'm3') return [ago(3), ''];
+  if (p === 'y0') return [`${y}-01-01`, ''];
+  if (p === 'y1') return [ago(12), ''];
+  if (/^Y\d{4}$/.test(p)) return [`${p.slice(1)}-01-01`, `${p.slice(1)}-12-31`];
+  if (p === 'custom') return [document.getElementById('ev-from').value, document.getElementById('ev-to').value];
+  return ['', ''];
+}
+
+// 현재 필터(받음/보냄·구분·기간·검색어)에 맞는 기록 (목록과 엑셀 다운로드에서 공통 사용)
+function getFilteredEvents() {
+  const fdir = document.getElementById('ev-filter-dir').value;
+  const fcat = document.getElementById('ev-filter-cat').value;
+  const q    = document.getElementById('ev-search').value.trim().replace(/\s+/g, ' ');
+  const [from, to] = evPeriodRange(document.getElementById('ev-filter-period').value);
+  return events.filter(v => {
+    if (fdir && v.dir !== fdir)    return false;
+    if (fcat && v.cat !== fcat)    return false;
+    if (from && v.date < from)     return false;
+    if (to   && v.date > to)       return false;
+    if (q    && !`${v.name} ${(v.memo || '').replace(/\s·\s/g, ' ')} ${v.gift || ''}`.includes(q)) return false;
+    return true;
+  }).sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id);
+}
+
+function resetEvFilters() {
+  ['ev-filter-dir', 'ev-filter-cat', 'ev-filter-period', 'ev-search', 'ev-from', 'ev-to']
+    .forEach(id => document.getElementById(id).value = '');
+  document.getElementById('ev-period-custom').style.display = 'none';
+  renderEventList();
+}
+
+function renderEventList() {
+  const fperiod = document.getElementById('ev-filter-period');
   const allYears = [...new Set(events.map(v => v.date.slice(0,4)))].sort().reverse();
-  const prevYear = fyear.value;
-  fyear.innerHTML = '<option value="">전체 연도</option>' +
-    allYears.map(y => `<option value="${y}"${prevYear===y?' selected':''}>${y}년</option>`).join('');
-  const fyv = fyear.value;
+  const prev = fperiod.value;
+  fperiod.innerHTML = [
+    ['', '전체 기간'], ['m1', '이번 달'], ['m3', '최근 3개월'], ['y0', '올해'], ['y1', '최근 1년'],
+    ...allYears.map(y => ['Y' + y, y + '년']),
+    ['custom', '기간 직접 지정']
+  ].map(([val, label]) => `<option value="${val}"${prev===val?' selected':''}>${label}</option>`).join('');
 
   // 이름 자동완성 목록
   document.getElementById('ev-name-list').innerHTML =
-    [...new Set(events.map(v => v.name))].map(n => `<option value="${n}"></option>`).join('');
+    [...new Set(events.map(v => v.name))].map(n => `<option value="${escHtml(n)}"></option>`).join('');
 
-  const list = events.filter(v => {
-    if (fdir && v.dir !== fdir)               return false;
-    if (fcat && v.cat !== fcat)               return false;
-    if (fyv  && !v.date.startsWith(fyv))      return false;
-    if (q    && !v.name.includes(q))          return false;
-    return true;
-  }).sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id);
+  const list = getFilteredEvents();
+  const filtered = list.length !== events.length;
+  document.getElementById('ev-count').textContent = filtered ? `${list.length}/${events.length}건` : `${list.length}건`;
+  document.getElementById('ev-reset').style.display = filtered ? 'inline-block' : 'none';
 
   const sumIn  = list.filter(v => v.dir === '받음').reduce((s, v) => s + evTotal(v), 0);
   const sumOut = list.filter(v => v.dir === '보냄').reduce((s, v) => s + evTotal(v), 0);
@@ -2205,27 +2301,21 @@ function renderEventList() {
   `;
 
   const container = document.getElementById('event-list');
-  if (!list.length) { container.innerHTML = '<div class="empty">경조사 기록이 없습니다</div>'; return; }
+  if (!list.length) { container.innerHTML = `<div class="empty">${events.length ? '검색 결과가 없습니다' : '경조사 기록이 없습니다'}</div>`; return; }
   container.innerHTML = list.map(v => {
     const isIn = v.dir === '받음';
-    return `<div class="supply-item">
-      <div style="flex:1;min-width:0;">
-        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-          <span class="ev-dir-badge ${isIn?'ev-dir-in':'ev-dir-out'}">${isIn?'📥 받음':'📤 보냄'}</span>
-          <span class="supply-name">${v.name}</span>
-          <span class="tag-sm tag-crop">${v.rel}</span>
-        </div>
-        <div class="supply-sub">📅 ${v.date} · ${evCatIcon[v.cat]||''} ${v.cat}</div>
-        <div class="supply-sub" style="margin-top:2px;">${evDetail(v)}</div>
-        ${v.memo ? `<div class="supply-sub" style="margin-top:2px;">📌 ${v.memo}</div>` : ''}
-      </div>
-      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0;">
-        ${evTotal(v) ? `<div class="${isIn?'ev-amt-in':'ev-amt-out'}">${isIn?'+':'-'}${evTotal(v).toLocaleString()}원</div>` : ''}
-        <div style="display:flex;gap:5px;">
-          <button class="btn-del" style="border-color:#b3d4b3;color:var(--green);" onclick="editEvent(${v.id})">수정</button>
-          <button class="btn-del" onclick="delEvent(${v.id})">삭제</button>
-        </div>
-      </div>
+    const gifts = evKinds(v).filter(k => k !== '현금').map(k => k === '화환' ? '💐' : '🎁').join('');
+    // "이름 + 메모"를 한 덩어리로 (예: 이영희 자녀혼). 메모가 없으면 구분을 붙임
+    const memoMain = (v.memo || '').replace(/(^|\s·\s)원본일자 [^·]*/g, '').replace(/\s·\s/g, ' ').trim();
+    const extra = [v.cat, v.rel !== '기타' ? v.rel : '', evDetail(v), escHtml(v.memo)].filter(Boolean).join(' · ');
+    return `<div class="ev-row" onclick="this.classList.toggle('open')">
+      <span class="ev-row-date">${v.date.slice(2).replace(/-/g, '.')}</span>
+      <span class="ev-row-dir ${isIn?'ev-dir-in':'ev-dir-out'}">${isIn?'받음':'보냄'}</span>
+      <span class="ev-row-main"><b>${escHtml(v.name)}</b> ${escHtml(memoMain) || v.cat}${gifts ? ' ' + gifts : ''}</span>
+      <span class="ev-row-memo">${extra}</span>
+      <span class="ev-row-amt ${isIn?'ev-amt-in':'ev-amt-out'}">${evTotal(v) ? (isIn?'+':'-') + evTotal(v).toLocaleString() : ''}</span>
+      <button class="ev-row-btn" onclick="event.stopPropagation();editEvent(${v.id})" title="수정">✏️</button>
+      <button class="ev-row-btn" onclick="event.stopPropagation();delEvent(${v.id})" title="삭제">✕</button>
     </div>`;
   }).join('');
 }
