@@ -964,6 +964,16 @@ textarea { resize: vertical; min-height: 90px; line-height: 1.6; }
   </div>
 
   <div class="card">
+    <div style="font-size:15px;font-weight:700;margin-bottom:4px;">💌 경조사비 백업 / 복원</div>
+    <div style="font-size:13px;color:var(--text-hint);margin-bottom:14px;">경조사비 기록만 따로 저장합니다. 불러올 때는 기존 기록을 지우지 않고, 없는 기록만 추가합니다.</div>
+    <input type="file" id="ev-backup-file" accept=".json" style="display:none;" onchange="importEventBackup(this)" />
+    <div style="display:flex;gap:8px;">
+      <button class="btn-save" onclick="exportEventBackup()" style="margin-top:0;flex:1;white-space:nowrap;">💾 백업하기</button>
+      <button class="btn-save" onclick="document.getElementById('ev-backup-file').click()" style="margin-top:0;flex:1;background:var(--blue);white-space:nowrap;">📂 복원하기</button>
+    </div>
+  </div>
+
+  <div class="card">
     <div style="font-size:15px;font-weight:700;margin-bottom:4px;">📊 엑셀 파일 내보내기</div>
     <div style="font-size:13px;color:var(--text-hint);margin-bottom:14px;">기록을 엑셀(CSV)로 저장합니다. 엑셀·구글 시트에서 바로 열 수 있습니다.</div>
     <div style="display:flex;gap:8px;">
@@ -980,7 +990,7 @@ textarea { resize: vertical; min-height: 90px; line-height: 1.6; }
 </section>
 
 <script>
-const APP_VERSION = 7;
+const APP_VERSION = 8;
 
 let _toastTimer = null;
 function showToast(msg, duration = 1800) {
@@ -1699,6 +1709,9 @@ function importData(input) {
   reader.onload = (ev) => {
     try {
       const data = JSON.parse(ev.target.result);
+      if (data.type === 'events') {
+        alert('경조사비 전용 백업 파일입니다.\n아래 "💌 경조사비 백업 / 복원"에서 불러와 주세요.'); return;
+      }
       if (!data.version || !Array.isArray(data.entries)) {
         alert('올바른 백업 파일이 아닙니다.'); return;
       }
@@ -1714,6 +1727,46 @@ function importData(input) {
       alert('파일을 읽는 중 오류가 발생했습니다.');
     }
     input.value = '';
+  };
+  reader.readAsText(file);
+}
+
+// ---- 경조사비 전용 백업 / 복원 ----
+function exportEventBackup() {
+  if (!events.length) { alert('저장된 경조사 기록이 없습니다.'); return; }
+  const data = { type: 'events', version: 1, exportDate: new Date().toISOString(), events };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = `경조사비_백업_${toDateStr(new Date()).replace(/-/g, '')}.json`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  showToast(`✅ 경조사비 ${events.length}건 백업 파일 저장`);
+}
+
+// 기존 기록은 그대로 두고 없는 기록만 추가 (전체 백업 파일에서도 경조사비만 가져올 수 있음)
+function importEventBackup(input) {
+  const file = input.files[0];
+  input.value = '';
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    let list;
+    try { list = JSON.parse(ev.target.result).events; } catch (e) { list = null; }
+    if (!Array.isArray(list)) { alert('경조사비 기록이 들어있는 백업 파일이 아닙니다.'); return; }
+    const valid = list.filter(v => v && v.date && v.name);
+    const ids  = new Set(events.map(v => v.id));
+    const keys = new Set(events.map(evKey));
+    const fresh = valid.filter(v => !ids.has(v.id) && !keys.has(evKey(v)));
+    if (!fresh.length) { alert(`백업 파일의 ${valid.length}건이 모두 이미 있습니다.`); return; }
+    if (!confirm(`백업 파일에서 ${valid.length}건을 읽었습니다.\n\n· 새로 추가: ${fresh.length}건\n· 이미 있는 기록(제외): ${valid.length - fresh.length}건\n\n추가할까요?`)) return;
+    let base = Date.now();
+    fresh.forEach(v => { if (v.id == null || ids.has(v.id)) v.id = base++; ids.add(v.id); });
+    events = fresh.concat(events);
+    save();
+    renderBackupStats();
+    showToast(`✅ 경조사비 ${fresh.length}건 복원 완료`);
   };
   reader.readAsText(file);
 }
@@ -2455,19 +2508,29 @@ function parseEvRows(grid, { row: headerRow, map }) {
     });
   }
 
-  // 연도가 없는 일자는 바로 앞 기록의 연도를 따름 (장부가 날짜순이라는 가정)
-  const firstKnown = recs.find(v => v._pd.y != null);
-  let lastY = null;
+  // 연도가 없는 일자는 앞뒤 기록으로 추정 (장부가 날짜순이라는 가정)
+  // - 첫 연도 표기 이전: 거꾸로 따라가며 월이 커지면 한 해 전으로
+  // - 이후: 바로 앞 기록의 연도, 월이 작아지면 다음 해로
+  recs.forEach(v => { v._guessY = v._pd.y == null; });
+  let firstIdx = recs.findIndex(v => v._pd.y != null);
+  if (firstIdx < 0) firstIdx = recs.length;
+  let nextY = firstIdx < recs.length ? recs[firstIdx]._pd.y : new Date().getFullYear();
+  let nextM = firstIdx < recs.length ? recs[firstIdx]._pd.m : 12;
+  for (let i = firstIdx - 1; i >= 0; i--) {
+    const pd = recs[i]._pd;
+    if (pd.m > nextM) nextY--;
+    pd.y = nextY; nextM = pd.m;
+  }
+  let prevY = null, prevM = null;
+  for (let i = firstIdx; i < recs.length; i++) {
+    const pd = recs[i]._pd;
+    if (pd.y == null) pd.y = pd.m < prevM ? prevY + 1 : prevY;
+    prevY = pd.y; prevM = pd.m;
+  }
   for (const v of recs) {
     const pd = v._pd;
-    let guess = false;
-    if (pd.y != null) lastY = pd.y;
-    else {
-      guess = true;
-      pd.y = lastY != null ? lastY
-        : firstKnown ? (pd.m > firstKnown._pd.m ? firstKnown._pd.y - 1 : firstKnown._pd.y)
-        : new Date().getFullYear();
-    }
+    let guess = v._guessY;
+    delete v._guessY;
     if (!pd.d || pd.d > new Date(pd.y, pd.m, 0).getDate()) { pd.d = 1; guess = true; }
     v.date = `${pd.y}-${String(pd.m).padStart(2,'0')}-${String(pd.d).padStart(2,'0')}`;
     if (guess) v.memo = [v.memo, `원본일자 ${v._raw}`].filter(Boolean).join(' · ');
