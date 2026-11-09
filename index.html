@@ -980,7 +980,7 @@ textarea { resize: vertical; min-height: 90px; line-height: 1.6; }
 </section>
 
 <script>
-const APP_VERSION = 6;
+const APP_VERSION = 7;
 
 let _toastTimer = null;
 function showToast(msg, duration = 1800) {
@@ -1019,6 +1019,7 @@ function load() {
   try { const c  = JSON.parse(localStorage.getItem(CROP_KEY));  if(c) crops=c; } catch(e){}
   try { supplies = JSON.parse(localStorage.getItem(SUPPLY_KEY)) || []; } catch(e){ supplies=[]; }
   try { events   = JSON.parse(localStorage.getItem(EVENT_KEY))  || []; } catch(e){ events=[]; }
+  sortByDate();
 
   // 메인 데이터가 비어있으면 자동 백업에서 복원
   if (entries.length === 0 && supplies.length === 0 && events.length === 0) {
@@ -1028,7 +1029,16 @@ function load() {
   }
 }
 
+// 입력 순서와 관계없이 항상 최신 날짜가 위로 (같은 날짜는 나중에 입력한 것이 위)
+function sortByDate() {
+  const byDate = (a, b) => String(b.date || '').localeCompare(String(a.date || '')) || (b.id || 0) - (a.id || 0);
+  entries.sort(byDate);
+  supplies.sort(byDate);
+  events.sort(byDate);
+}
+
 function save() {
+  sortByDate();
   try {
     localStorage.setItem(ENTRY_KEY,  JSON.stringify(entries));
     localStorage.setItem(CROP_KEY,   JSON.stringify(crops));
@@ -1087,6 +1097,7 @@ function autoRestoreFromBackup() {
     crops    = latest.crops || crops;
     supplies = latest.supplies || [];
     events   = latest.events || [];
+    sortByDate();
     // 복원한 데이터를 메인 키에 다시 저장
     localStorage.setItem(ENTRY_KEY,  JSON.stringify(entries));
     localStorage.setItem(CROP_KEY,   JSON.stringify(crops));
@@ -1864,19 +1875,16 @@ function exportCSV(type) {
     // 경조사 탭에서는 현재 검색/필터 결과만, 백업 탭에서는 전체
     const src = type === 'events-filtered' ? getFilteredEvents() : events;
     if (!src.length) { alert(events.length ? '검색 결과가 없습니다.' : '저장된 경조사 기록이 없습니다.'); return; }
-    const headers = ['일시', '받음/보냄', '이름', '경조사구분', '관계', '형태', '현금(원)', '화환/선물 내용', '화환/선물 금액(원)', '합계(원)', '메모'];
+    const headers = ['일시', '받음/보냄', '경조사내용', '경조사구분', '관계', '형태', '금액(원)', '화환/선물 내용'];
     const rows = [...src].sort((a, b) => b.date.localeCompare(a.date)).map(v => [
       v.date,
       v.dir || '',
-      v.name || '',
+      [v.name, evMemoMain(v)].filter(Boolean).join(' '),   // 예: 이영희 자녀혼
       v.cat || '',
       v.rel || '',
       evKinds(v).join('+'),
-      v.amount != null ? v.amount : '',
-      v.gift || '',
-      v.giftPrice != null ? v.giftPrice : '',
       evTotal(v) || '',
-      v.memo || ''
+      v.gift || ''
     ]);
     csv = BOM + [headers, ...rows].map(r =>
       r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')
@@ -2116,6 +2124,10 @@ function evTotal(v) { return (v.amount || 0) + (v.giftPrice || 0); }
 function escHtml(s) {
   return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
+// 메모에서 불러오기 때 붙은 '원본일자'를 빼고 한 줄로 (예: "장모상 · 조합장" → "장모상 조합장")
+function evMemoMain(v) {
+  return (v.memo || '').replace(/(^|\s·\s)원본일자 [^·]*/g, '').replace(/\s·\s/g, ' ').trim();
+}
 function evDetail(v) {
   const parts = [];
   if (evKinds(v).includes('현금')) parts.push(`💵 현금${v.amount ? ' ' + v.amount.toLocaleString() + '원' : ''}`);
@@ -2306,7 +2318,7 @@ function renderEventList() {
     const isIn = v.dir === '받음';
     const gifts = evKinds(v).filter(k => k !== '현금').map(k => k === '화환' ? '💐' : '🎁').join('');
     // "이름 + 메모"를 한 덩어리로 (예: 이영희 자녀혼). 메모가 없으면 구분을 붙임
-    const memoMain = (v.memo || '').replace(/(^|\s·\s)원본일자 [^·]*/g, '').replace(/\s·\s/g, ' ').trim();
+    const memoMain = evMemoMain(v);
     const extra = [v.cat, v.rel !== '기타' ? v.rel : '', evDetail(v), escHtml(v.memo)].filter(Boolean).join(' · ');
     return `<div class="ev-row" onclick="this.classList.toggle('open')">
       <span class="ev-row-date">${v.date.slice(2).replace(/-/g, '.')}</span>
@@ -2426,6 +2438,9 @@ function parseEvRows(grid, { row: headerRow, map }) {
       if (!kinds.includes('화환')) kinds.push('화환');
     } else if (bigo) notes.push(bigo);
     if (gift && !kinds.includes('화환') && !kinds.includes('선물')) kinds.push('화환');
+    // 현금 없이 화환/선물만 있으면 금액은 화환·선물 금액으로
+    let cash = amount, giftPrice = num(r, 'giftPrice');
+    if (kinds.length && !kinds.includes('현금') && giftPrice == null) { giftPrice = cash; cash = null; }
 
     const dc = get(r, 'date');
     recs.push({
@@ -2435,7 +2450,7 @@ function parseEvRows(grid, { row: headerRow, map }) {
       cat: cats.includes(catCol) ? catCol : evCatFromText(content.event),
       rel: rels.includes(str(r, 'rel')) ? str(r, 'rel') : '기타',
       kinds: kinds.length ? kinds : ['현금'],
-      amount, gift, giftPrice: num(r, 'giftPrice'),
+      amount: cash, gift, giftPrice,
       memo: notes.filter(Boolean).join(' · ')
     });
   }
