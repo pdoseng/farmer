@@ -442,6 +442,32 @@ textarea { resize: vertical; min-height: 90px; line-height: 1.6; }
   cursor: pointer; flex-shrink: 0; margin-top: 2px;
 }
 
+/* 경조사비 */
+.sel-evdir-in  { background: var(--blue-pale); color: var(--blue); border-color: #85B7EB; }
+.sel-evdir-out { background: #fde8e8; color: #c0392b; border-color: #f0a8a8; }
+.sel-evcat     { background: var(--amber-pale); color: var(--amber); border-color: #FAC775; }
+.sel-evrel     { background: var(--green-pale); color: var(--green); border-color: var(--green-light); }
+.ev-dir-badge {
+  padding: 3px 9px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.ev-dir-in  { background: var(--blue-pale); color: var(--blue); }
+.ev-dir-out { background: #fde8e8; color: #c0392b; }
+.ev-amt-in  { font-size:15px; font-weight:700; color:var(--blue); white-space:nowrap; }
+.ev-amt-out { font-size:15px; font-weight:700; color:#c0392b; white-space:nowrap; }
+.ev-history {
+  margin-top: 10px;
+  padding: 10px 12px;
+  background: var(--bg);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  color: var(--text-sub);
+  line-height: 1.7;
+}
+
 /* 날짜 상세 모달 */
 .day-modal-bg {
   display: none; position: fixed; inset: 0;
@@ -532,6 +558,9 @@ textarea { resize: vertical; min-height: 90px; line-height: 1.6; }
   </button>
   <button class="nav-btn" onclick="goTab('supply',this)">
     <span class="nav-ico">🧴</span>자재
+  </button>
+  <button class="nav-btn" onclick="goTab('event',this)">
+    <span class="nav-ico">💌</span>경조사
   </button>
   <button class="nav-btn" onclick="goTab('backup',this)">
     <span class="nav-ico">💾</span>백업
@@ -691,6 +720,92 @@ textarea { resize: vertical; min-height: 90px; line-height: 1.6; }
   <div class="card" id="supply-list"></div>
 </section>
 
+<!-- 경조사비 -->
+<section class="section" id="sec-event">
+
+  <!-- 입력 카드 -->
+  <div class="card">
+    <div id="ev-edit-banner" style="display:none;background:var(--amber-pale);color:var(--amber);border-radius:var(--radius-sm);padding:10px 14px;margin-bottom:14px;font-size:13px;font-weight:700;">
+      ✏️ 수정 모드 — <span id="ev-edit-banner-name"></span>
+    </div>
+    <div style="font-size:15px;font-weight:700;margin-bottom:14px;">💌 경조사비 기록</div>
+
+    <div class="field-label">받음 / 보냄</div>
+    <div class="chip-row" id="ev-dir-chips">
+      <button class="chip ev-dir-chip sel-evdir-out" data-dir="보냄" onclick="pickEvDir(this)">📤 보냄 (지출)</button>
+      <button class="chip ev-dir-chip" data-dir="받음" onclick="pickEvDir(this)">📥 받음 (수입)</button>
+    </div>
+
+    <div class="field-label">일시</div>
+    <input type="date" id="ev-date" />
+
+    <div class="field-label">이름</div>
+    <input type="text" id="ev-name" placeholder="예: 홍길동" list="ev-name-list" oninput="renderEvHistory()" />
+    <datalist id="ev-name-list"></datalist>
+    <div id="ev-history"></div>
+
+    <div class="field-label">경조사 구분</div>
+    <div class="chip-row" id="ev-cat-chips">
+      <button class="chip ev-cat-chip sel-evcat" data-cat="결혼" onclick="pickEvCat(this)">💍 결혼</button>
+      <button class="chip ev-cat-chip" data-cat="장례" onclick="pickEvCat(this)">🕯️ 장례</button>
+      <button class="chip ev-cat-chip" data-cat="돌잔치" onclick="pickEvCat(this)">👶 돌잔치</button>
+      <button class="chip ev-cat-chip" data-cat="생신/칠순" onclick="pickEvCat(this)">🎂 생신/칠순</button>
+      <button class="chip ev-cat-chip" data-cat="개업/이사" onclick="pickEvCat(this)">🏠 개업/이사</button>
+      <button class="chip ev-cat-chip" data-cat="병문안" onclick="pickEvCat(this)">🏥 병문안</button>
+      <button class="chip ev-cat-chip" data-cat="기타" onclick="pickEvCat(this)">📦 기타</button>
+    </div>
+
+    <div class="field-label">관계</div>
+    <div class="chip-row" id="ev-rel-chips">
+      <button class="chip ev-rel-chip sel-evrel" data-rel="친척" onclick="pickEvRel(this)">친척</button>
+      <button class="chip ev-rel-chip" data-rel="친구" onclick="pickEvRel(this)">친구</button>
+      <button class="chip ev-rel-chip" data-rel="이웃" onclick="pickEvRel(this)">이웃</button>
+      <button class="chip ev-rel-chip" data-rel="직장" onclick="pickEvRel(this)">직장</button>
+      <button class="chip ev-rel-chip" data-rel="지인" onclick="pickEvRel(this)">지인</button>
+      <button class="chip ev-rel-chip" data-rel="기타" onclick="pickEvRel(this)">기타</button>
+    </div>
+
+    <div class="field-label">금액 (원)</div>
+    <input type="text" id="ev-amount" placeholder="예: 50,000" inputmode="numeric" oninput="fmtPrice(this)" />
+    <div class="chip-row" style="margin-top:8px;">
+      <button class="chip" onclick="setEvAmount(30000)">3만</button>
+      <button class="chip" onclick="setEvAmount(50000)">5만</button>
+      <button class="chip" onclick="setEvAmount(100000)">10만</button>
+      <button class="chip" onclick="setEvAmount(200000)">20만</button>
+    </div>
+
+    <div class="field-label">메모</div>
+    <input type="text" id="ev-memo" placeholder="예: 장남 결혼, 장소, 답례품 등" />
+
+    <button class="btn-save" id="ev-save-btn" onclick="saveEvent()">저장하기</button>
+    <button class="btn-clear" onclick="clearEventForm()">초기화</button>
+  </div>
+
+  <!-- 필터 + 목록 -->
+  <div class="filter-row">
+    <select id="ev-filter-dir" onchange="renderEventList()">
+      <option value="">받음+보냄</option>
+      <option>받음</option><option>보냄</option>
+    </select>
+    <select id="ev-filter-cat" onchange="renderEventList()">
+      <option value="">전체 구분</option>
+      <option>결혼</option><option>장례</option><option>돌잔치</option><option>생신/칠순</option><option>개업/이사</option><option>병문안</option><option>기타</option>
+    </select>
+    <select id="ev-filter-year" onchange="renderEventList()">
+      <option value="">전체 연도</option>
+    </select>
+  </div>
+  <input type="text" id="ev-search" placeholder="🔍 이름 검색" oninput="renderEventList()" style="margin-bottom:12px;" />
+
+  <!-- 요약 -->
+  <div class="stat-grid" id="ev-stat-grid" style="margin-bottom:12px;"></div>
+
+  <div style="text-align:right;margin-bottom:10px;">
+    <button class="btn-excel" onclick="exportCSV('events')">📊 엑셀 다운로드</button>
+  </div>
+  <div class="card" id="event-list"></div>
+</section>
+
 <!-- 날짜 상세 모달 -->
 <div class="day-modal-bg" id="day-modal" onclick="closeDayModalBg(event)">
   <div class="day-modal">
@@ -798,6 +913,7 @@ textarea { resize: vertical; min-height: 90px; line-height: 1.6; }
       <button class="btn-excel" style="flex:1;justify-content:center;" onclick="exportCSV('entries')">🌱 농사일지 엑셀</button>
       <button class="btn-excel" style="flex:1;justify-content:center;" onclick="exportCSV('supplies')">🧴 자재기록 엑셀</button>
     </div>
+    <button class="btn-excel" style="width:100%;justify-content:center;margin-top:8px;" onclick="exportCSV('events')">💌 경조사비 엑셀</button>
   </div>
 
   <div class="card">
@@ -807,7 +923,7 @@ textarea { resize: vertical; min-height: 90px; line-height: 1.6; }
 </section>
 
 <script>
-const APP_VERSION = 3;
+const APP_VERSION = 4;
 
 let _toastTimer = null;
 function showToast(msg, duration = 1800) {
@@ -820,6 +936,7 @@ function showToast(msg, duration = 1800) {
 const ENTRY_KEY  = 'fj_entries_v1';
 const CROP_KEY   = 'fj_crops_v1';
 const SUPPLY_KEY = 'fj_supply_v1';
+const EVENT_KEY  = 'fj_event_v1';
 const BACKUP_KEY      = 'fj_autobackups';  // 최신 3개 스냅샷
 const MAX_BACKUPS     = 3;
 
@@ -827,6 +944,9 @@ let entries = [];
 let crops   = ['인삼','고추','더덕','옥수수','벼','배추','감자','콩','상추','토마토'];
 let supplies = [];
 let selSupCat = '농약';
+let events = [];
+let selEvDir = '보냄', selEvCat = '결혼', selEvRel = '친척';
+let evEditId = null;
 let selWeather = '맑음';
 let selCrops = [];
 let selWorks = [];
@@ -840,9 +960,10 @@ function load() {
   try { entries  = JSON.parse(localStorage.getItem(ENTRY_KEY))  || []; } catch(e){ entries=[]; }
   try { const c  = JSON.parse(localStorage.getItem(CROP_KEY));  if(c) crops=c; } catch(e){}
   try { supplies = JSON.parse(localStorage.getItem(SUPPLY_KEY)) || []; } catch(e){ supplies=[]; }
+  try { events   = JSON.parse(localStorage.getItem(EVENT_KEY))  || []; } catch(e){ events=[]; }
 
   // 메인 데이터가 비어있으면 자동 백업에서 복원
-  if (entries.length === 0 && supplies.length === 0) {
+  if (entries.length === 0 && supplies.length === 0 && events.length === 0) {
     autoRestoreFromBackup();
   } else {
     showLatestBackupStatus();
@@ -854,6 +975,7 @@ function save() {
     localStorage.setItem(ENTRY_KEY,  JSON.stringify(entries));
     localStorage.setItem(CROP_KEY,   JSON.stringify(crops));
     localStorage.setItem(SUPPLY_KEY, JSON.stringify(supplies));
+    localStorage.setItem(EVENT_KEY,  JSON.stringify(events));
   } catch(e) {
     if (e.name === 'QuotaExceededError' || e.code === 22) {
       alert('⚠️ 저장 공간이 부족합니다.\n사진이 많으면 용량이 초과될 수 있습니다.\n백업 후 오래된 기록을 삭제해 주세요.');
@@ -872,7 +994,7 @@ async function autoDownloadBackup() {
   const now  = new Date();
   const ts   = now.toISOString().replace(/[:.]/g,'-').slice(0,16);
   const filename = `doseongnae_${ts}.json`;
-  const data = { version: 1, exportDate: now.toISOString(), entries, crops, supplies };
+  const data = { version: 1, exportDate: now.toISOString(), entries, crops, supplies, events };
   const json = JSON.stringify(data, null, 2);
   const saved = await saveToBackupDir(filename, json);
   if (saved) updateAutosaveStatus(now.toISOString());
@@ -884,7 +1006,8 @@ function saveAutoBackup() {
     ts: new Date().toISOString(),
     entries:  entries.map(e  => { const {photos, ...rest} = e;  return rest; }),
     crops,
-    supplies: supplies.map(s => { const {photo,  ...rest} = s;  return rest; })
+    supplies: supplies.map(s => { const {photo,  ...rest} = s;  return rest; }),
+    events
   };
   let backups = [];
   try { backups = JSON.parse(localStorage.getItem(BACKUP_KEY)) || []; } catch(e) {}
@@ -901,16 +1024,18 @@ function autoRestoreFromBackup() {
     const backups = JSON.parse(localStorage.getItem(BACKUP_KEY)) || [];
     if (backups.length === 0) return;
     const latest = backups[0];
-    if (!latest.entries || latest.entries.length === 0) return;
-    entries  = latest.entries;
+    if (!(latest.entries && latest.entries.length) && !(latest.events && latest.events.length)) return;
+    entries  = latest.entries || [];
     crops    = latest.crops || crops;
     supplies = latest.supplies || [];
+    events   = latest.events || [];
     // 복원한 데이터를 메인 키에 다시 저장
     localStorage.setItem(ENTRY_KEY,  JSON.stringify(entries));
     localStorage.setItem(CROP_KEY,   JSON.stringify(crops));
     localStorage.setItem(SUPPLY_KEY, JSON.stringify(supplies));
+    localStorage.setItem(EVENT_KEY,  JSON.stringify(events));
     const d = new Date(latest.ts);
-    alert(`📂 자동 복원 완료!\n저장 시각: ${d.toLocaleString('ko-KR')}\n일지 ${entries.length}건, 자재 ${supplies.length}건`);
+    alert(`📂 자동 복원 완료!\n저장 시각: ${d.toLocaleString('ko-KR')}\n일지 ${entries.length}건, 자재 ${supplies.length}건, 경조사 ${events.length}건`);
     updateAutosaveStatus(latest.ts);
   } catch(e) { console.warn('자동 복원 실패:', e); }
 }
@@ -944,6 +1069,7 @@ function init() {
   calMonth = now.getMonth();
   document.getElementById('entry-date').value = toDateStr(now);
   document.getElementById('sup-date').value   = toDateStr(now);
+  document.getElementById('ev-date').value    = toDateStr(now);
   document.getElementById('today-date').textContent =
     now.toLocaleDateString('ko-KR', {year:'numeric',month:'long',day:'numeric',weekday:'long'});
   renderCropChips();
@@ -963,6 +1089,7 @@ function goTab(name, btn) {
   if(name==='stats')    renderStats();
   if(name==='crops')    renderCropMgr();
   if(name==='supply')   renderSupplyList();
+  if(name==='event')    renderEventList();
   if(name==='backup')   renderBackupStats();
 }
 
@@ -1478,7 +1605,8 @@ function exportData() {
     exportDate: new Date().toISOString(),
     entries,
     crops,
-    supplies
+    supplies,
+    events
   };
   const json = JSON.stringify(data, null, 2);
   const blob = new Blob([json], { type: 'application/json' });
@@ -1508,10 +1636,11 @@ function importData(input) {
       entries   = data.entries   || [];
       crops     = data.crops     || [];
       supplies  = data.supplies  || [];
+      events    = data.events    || [];
       save();
       renderCropChips();
       renderBackupStats();
-      alert(`불러오기 완료! ✅\n일지 ${entries.length}건, 자재 ${supplies.length}건 복원됐습니다.`);
+      alert(`불러오기 완료! ✅\n일지 ${entries.length}건, 자재 ${supplies.length}건, 경조사 ${events.length}건 복원됐습니다.`);
     } catch(e) {
       alert('파일을 읽는 중 오류가 발생했습니다.');
     }
@@ -1527,7 +1656,8 @@ function renderBackupStats() {
       <div class="stat-box"><div class="stat-num">${entries.length}</div><div class="stat-lbl">일지 기록</div></div>
       <div class="stat-box"><div class="stat-num">${supplies.length}</div><div class="stat-lbl">자재 기록</div></div>
       <div class="stat-box"><div class="stat-num">${crops.length}</div><div class="stat-lbl">등록 작물</div></div>
-      <div class="stat-box"><div class="stat-num" style="font-size:13px;">${lastEntry}</div><div class="stat-lbl">최근 기록일</div></div>
+      <div class="stat-box"><div class="stat-num">${events.length}</div><div class="stat-lbl">경조사 기록</div></div>
+      <div class="stat-box" style="grid-column:span 2;"><div class="stat-num" style="font-size:13px;">${lastEntry}</div><div class="stat-lbl">최근 기록일</div></div>
     </div>
   `;
 }
@@ -1654,7 +1784,7 @@ function exportCSV(type) {
       r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')
     ).join('\n');
     filename = `농사일지_${date}.csv`;
-  } else {
+  } else if (type === 'supplies') {
     if (!supplies.length) { alert('저장된 자재 기록이 없습니다.'); return; }
     const headers = ['구매일', '구분', '품목명', '구매처', '수량', '단위', '구매금액(원)', '개당단가(원)', '메모'];
     const rows = supplies.map(s => [
@@ -1672,6 +1802,22 @@ function exportCSV(type) {
       r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')
     ).join('\n');
     filename = `농자재구매_${date}.csv`;
+  } else if (type === 'events') {
+    if (!events.length) { alert('저장된 경조사 기록이 없습니다.'); return; }
+    const headers = ['일시', '받음/보냄', '이름', '경조사구분', '관계', '금액(원)', '메모'];
+    const rows = [...events].sort((a, b) => b.date.localeCompare(a.date)).map(v => [
+      v.date,
+      v.dir || '',
+      v.name || '',
+      v.cat || '',
+      v.rel || '',
+      v.amount != null ? v.amount : '',
+      v.memo || ''
+    ]);
+    csv = BOM + [headers, ...rows].map(r =>
+      r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')
+    ).join('\n');
+    filename = `경조사비_${date}.csv`;
   }
 
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -1850,6 +1996,166 @@ function renderSupplyList() {
         ${s.photo ? `<img class="supply-thumb" src="${s.photo}" alt="영수증" onclick="openSupplyPhotoModal(${s.id})" />` : ''}
         ${s.price ? `<div class="supply-price">${s.price.toLocaleString()}원</div>` : ''}
         <button class="btn-del" onclick="delSupply(${s.id})">삭제</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ---- 경조사비 기록 ----
+const evCatIcon = {'결혼':'💍','장례':'🕯️','돌잔치':'👶','생신/칠순':'🎂','개업/이사':'🏠','병문안':'🏥','기타':'📦'};
+
+function pickEvDir(el) {
+  document.querySelectorAll('.ev-dir-chip').forEach(b => b.classList.remove('sel-evdir-in','sel-evdir-out'));
+  selEvDir = el.dataset.dir;
+  el.classList.add(selEvDir === '받음' ? 'sel-evdir-in' : 'sel-evdir-out');
+}
+function pickEvCat(el) {
+  document.querySelectorAll('.ev-cat-chip').forEach(b => b.classList.remove('sel-evcat'));
+  el.classList.add('sel-evcat');
+  selEvCat = el.dataset.cat;
+}
+function pickEvRel(el) {
+  document.querySelectorAll('.ev-rel-chip').forEach(b => b.classList.remove('sel-evrel'));
+  el.classList.add('sel-evrel');
+  selEvRel = el.dataset.rel;
+}
+function setEvChips(dir, cat, rel) {
+  pickEvDir(document.querySelector(`.ev-dir-chip[data-dir="${dir}"]`) || document.querySelector('.ev-dir-chip'));
+  pickEvCat(document.querySelector(`.ev-cat-chip[data-cat="${cat}"]`) || document.querySelector('.ev-cat-chip[data-cat="기타"]'));
+  pickEvRel(document.querySelector(`.ev-rel-chip[data-rel="${rel}"]`) || document.querySelector('.ev-rel-chip[data-rel="기타"]'));
+}
+function setEvAmount(n) {
+  document.getElementById('ev-amount').value = n.toLocaleString();
+}
+
+// 같은 이름으로 주고받은 내역 요약 (입력 중 참고용)
+function renderEvHistory() {
+  const name = document.getElementById('ev-name').value.trim();
+  const el = document.getElementById('ev-history');
+  const past = name ? events.filter(v => v.name === name && v.id !== evEditId) : [];
+  if (!past.length) { el.innerHTML = ''; return; }
+  const sumIn  = past.filter(v => v.dir === '받음').reduce((s, v) => s + (v.amount || 0), 0);
+  const sumOut = past.filter(v => v.dir === '보냄').reduce((s, v) => s + (v.amount || 0), 0);
+  const rows = [...past].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5).map(v =>
+    `<div>${v.date} · ${v.dir === '받음' ? '📥 받음' : '📤 보냄'} · ${v.cat} · <b>${(v.amount || 0).toLocaleString()}원</b></div>`
+  ).join('');
+  el.innerHTML = `<div class="ev-history">
+    <div style="font-weight:700;margin-bottom:4px;">📖 ${name}님과 주고받은 내역 (${past.length}건)</div>
+    <div>받음 <b style="color:var(--blue);">${sumIn.toLocaleString()}원</b> · 보냄 <b style="color:#c0392b;">${sumOut.toLocaleString()}원</b></div>
+    <div style="margin-top:4px;">${rows}</div>
+  </div>`;
+}
+
+function saveEvent() {
+  const date = document.getElementById('ev-date').value;
+  const name = document.getElementById('ev-name').value.trim();
+  const amountRaw = document.getElementById('ev-amount').value.replace(/,/g,'').trim();
+  const memo = document.getElementById('ev-memo').value.trim();
+  if (!date) { alert('일시를 선택해주세요.'); return; }
+  if (!name) { alert('이름을 입력해주세요.'); return; }
+  const amount = amountRaw ? parseInt(amountRaw, 10) : null;
+  const data = { date, dir: selEvDir, name, cat: selEvCat, rel: selEvRel, amount, memo };
+  if (evEditId) {
+    const idx = events.findIndex(v => v.id === evEditId);
+    if (idx !== -1) events[idx] = { id: evEditId, ...data };
+    save(); clearEventForm();
+    showToast('✅ 수정 완료되었습니다');
+  } else {
+    events.unshift({ id: Date.now(), ...data });
+    save(); clearEventForm();
+    showToast('✅ 저장 완료되었습니다');
+  }
+  renderEventList();
+}
+
+function clearEventForm() {
+  evEditId = null;
+  document.getElementById('ev-edit-banner').style.display = 'none';
+  document.getElementById('ev-save-btn').textContent = '저장하기';
+  document.getElementById('ev-date').value   = toDateStr(new Date());
+  document.getElementById('ev-name').value   = '';
+  document.getElementById('ev-amount').value = '';
+  document.getElementById('ev-memo').value   = '';
+  setEvChips('보냄', '결혼', '친척');
+  renderEvHistory();
+}
+
+function editEvent(id) {
+  const v = events.find(x => x.id === id);
+  if (!v) return;
+  evEditId = v.id;
+  document.getElementById('ev-edit-banner').style.display = 'block';
+  document.getElementById('ev-edit-banner-name').textContent = `${v.date} ${v.name}`;
+  document.getElementById('ev-save-btn').textContent = '수정 완료';
+  document.getElementById('ev-date').value   = v.date;
+  document.getElementById('ev-name').value   = v.name;
+  document.getElementById('ev-amount').value = v.amount != null ? v.amount.toLocaleString() : '';
+  document.getElementById('ev-memo').value   = v.memo || '';
+  setEvChips(v.dir, v.cat, v.rel);
+  renderEvHistory();
+  window.scrollTo(0, 0);
+}
+
+function delEvent(id) {
+  if (!confirm('이 기록을 삭제할까요?')) return;
+  events = events.filter(v => v.id !== id);
+  if (evEditId === id) clearEventForm();
+  save(); renderEventList();
+}
+
+function renderEventList() {
+  const fdir  = document.getElementById('ev-filter-dir').value;
+  const fcat  = document.getElementById('ev-filter-cat').value;
+  const fyear = document.getElementById('ev-filter-year');
+  const q     = document.getElementById('ev-search').value.trim();
+
+  const allYears = [...new Set(events.map(v => v.date.slice(0,4)))].sort().reverse();
+  const prevYear = fyear.value;
+  fyear.innerHTML = '<option value="">전체 연도</option>' +
+    allYears.map(y => `<option value="${y}"${prevYear===y?' selected':''}>${y}년</option>`).join('');
+  const fyv = fyear.value;
+
+  // 이름 자동완성 목록
+  document.getElementById('ev-name-list').innerHTML =
+    [...new Set(events.map(v => v.name))].map(n => `<option value="${n}"></option>`).join('');
+
+  const list = events.filter(v => {
+    if (fdir && v.dir !== fdir)               return false;
+    if (fcat && v.cat !== fcat)               return false;
+    if (fyv  && !v.date.startsWith(fyv))      return false;
+    if (q    && !v.name.includes(q))          return false;
+    return true;
+  }).sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id);
+
+  const sumIn  = list.filter(v => v.dir === '받음').reduce((s, v) => s + (v.amount || 0), 0);
+  const sumOut = list.filter(v => v.dir === '보냄').reduce((s, v) => s + (v.amount || 0), 0);
+  const diff   = sumIn - sumOut;
+  document.getElementById('ev-stat-grid').innerHTML = `
+    <div class="stat-box"><div class="stat-num" style="font-size:15px;color:var(--blue);">${sumIn.toLocaleString()}</div><div class="stat-lbl">받은 금액(원)</div></div>
+    <div class="stat-box"><div class="stat-num" style="font-size:15px;color:#c0392b;">${sumOut.toLocaleString()}</div><div class="stat-lbl">보낸 금액(원)</div></div>
+    <div class="stat-box"><div class="stat-num" style="font-size:15px;color:${diff>=0?'var(--green)':'#c0392b'};">${diff>0?'+':''}${diff.toLocaleString()}</div><div class="stat-lbl">차액(원)</div></div>
+  `;
+
+  const container = document.getElementById('event-list');
+  if (!list.length) { container.innerHTML = '<div class="empty">경조사 기록이 없습니다</div>'; return; }
+  container.innerHTML = list.map(v => {
+    const isIn = v.dir === '받음';
+    return `<div class="supply-item">
+      <div style="flex:1;min-width:0;">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <span class="ev-dir-badge ${isIn?'ev-dir-in':'ev-dir-out'}">${isIn?'📥 받음':'📤 보냄'}</span>
+          <span class="supply-name">${v.name}</span>
+          <span class="tag-sm tag-crop">${v.rel}</span>
+        </div>
+        <div class="supply-sub">📅 ${v.date} · ${evCatIcon[v.cat]||''} ${v.cat}</div>
+        ${v.memo ? `<div class="supply-sub" style="margin-top:2px;">📌 ${v.memo}</div>` : ''}
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0;">
+        ${v.amount ? `<div class="${isIn?'ev-amt-in':'ev-amt-out'}">${isIn?'+':'-'}${v.amount.toLocaleString()}원</div>` : ''}
+        <div style="display:flex;gap:5px;">
+          <button class="btn-del" style="border-color:#b3d4b3;color:var(--green);" onclick="editEvent(${v.id})">수정</button>
+          <button class="btn-del" onclick="delEvent(${v.id})">삭제</button>
+        </div>
       </div>
     </div>`;
   }).join('');
